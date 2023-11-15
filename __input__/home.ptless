@@ -1,0 +1,33 @@
+l `TST` a :: List[Integer] => Integer => Integer = l + b
+ where b :: Integer = a + b + c + d + e + f
+ where c :: Integer = add(a+b, l-c, sub(z*w, x), t `mul` b)
+ where z :: String = "Am string"
+ where c(w, x) :: Integer => Integer => Integer = 
+  | eq(w,x) => x
+  | default => w
+
+LEN(s) :: String => Integer = 
+ | add(s) => sub(s)  
+ | default => add(s)
+
+// LEN(s) :: String => Integer = False
+
+BVV :: Boolean = True
+  where b :: Integer = 23
+ 
+// Def:(TST l a (+ l b)
+//        Where:(b (+ a (+ b (+ c (+ d (+ e f))))))
+// OR     Where:(b (+ (+ (+ (+ a b) c) d) e) f)
+//        Where:(c (add (+ a b) (- l c) (sub (* z w) x) (mul t b)))
+//        Where:(z "...")
+//        Where:(c w x Guard:(
+//          (eq w x) x
+//          (default) w
+//        ))
+//      )
+
+// Def:(LEN s Guard:(
+//  Expr:(add s) Expr:(sub s)
+//  Expr:(default) Expr:(add s)
+// ))
+    
