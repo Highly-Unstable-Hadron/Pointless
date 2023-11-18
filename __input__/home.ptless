@@ -1,4 +1,4 @@
-l `TST` a :: List[Integer] => Integer => Integer = l + b
+l `TST` a :: Integer => Integer => Integer = l + b  // comment
  where b :: Integer = a + b + c + d + e + f
  where c :: Integer = add(a+b, l-c, sub(z*w, x), t `mul` b)
  where z :: String = "Am string"
@@ -6,13 +6,13 @@ l `TST` a :: List[Integer] => Integer => Integer = l + b
   | eq(w,x) => x
   | default => w
 
-LEN(s) :: String => Integer = 
+LEN(s) :: Integer => Integer = 
  | add(s) => sub(s)  
  | default => add(s)
 
 // LEN(s) :: String => Integer = False
 
-BVV :: Boolean = True
+BVV(a, b) :: Integer => Integer => Boolean = True
   where b :: Integer = 23
  
 // Def:(TST l a (+ l b)

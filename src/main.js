@@ -10,6 +10,7 @@ const output_filepath  = process.argv[3] || "./__output__/home.html";
 const output_wasm_path = process.argv[4] || "./__output__/home.wasm";
 const run              = process.argv[5] || false;  // TODO: WASM executer
 
+
 require('util').inspect.defaultOptions.depth = 50;
 
 readFile(input_filepath, "utf-8", (err, fileContents) => {

@@ -1,0 +1,5 @@
+(module 
+	(func $TST (param $l i32) (param $a i32) (result i32) $l $b call $+) 
+	(func $LEN (param $s i32) (result i32)) 
+	(func $BVV (param $a i32) (param $b i32) (result i32) i32.const 0xFFFFFFFF) 
+(export (func $TST) (func $LEN) (func $BVV))) 
