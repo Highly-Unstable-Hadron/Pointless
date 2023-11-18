@@ -357,7 +357,6 @@ function GCD(args) {  /** Finds the GCD of an array of numbers */
     );
 }
 
-
 function fmtAST(ast) {
     const RuleTypeStrings = ['TypeDef', 'Def', 'Guard', 'Where', 'FnCall', 'CType', 'Case', 'Array']
     output = ""

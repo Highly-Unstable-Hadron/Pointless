@@ -53,7 +53,6 @@ function parser(string) {
     return [tokenised, handler];
 }
 
-
 // Signature of all following functions and TokenChecks.*: Parse<Rule>  string => Fit[token(s)](string)
 function ParseFrontend(line) {
     return handler.fitOnce(ParseWindow, true).lazy_concat(

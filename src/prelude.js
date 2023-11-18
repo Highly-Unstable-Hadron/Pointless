@@ -85,9 +85,8 @@ function genFunctionDef(ast_snip) {
     }
     // SymbolTable.set({signature: types, fnName: fnName})
     exportables.push(['func', '$'+fnName]);
-    
     let output = [
-        'func', '$'+fnName, 
+        'func', '$'+fnName,
         ...args.map((arg, index) => ['param', '$'+arg, genTypes(types[index])]), 
         ['result', genTypes(resultType)],
         ...genWhere(wheres),

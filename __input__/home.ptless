@@ -15,7 +15,7 @@ LEN(s) :: Integer => Integer =
 BVV(a, b) :: Integer => Integer => Boolean = True
   where b :: Integer = 23
  
-// Def:(TST l a (+ l b)
+// Def:(TST l a (+ l b) 
 //        Where:(b (+ a (+ b (+ c (+ d (+ e f))))))
 // OR     Where:(b (+ (+ (+ (+ a b) c) d) e) f)
 //        Where:(c (add (+ a b) (- l c) (sub (* z w) x) (mul t b)))
