@@ -1,0 +1,78 @@
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>placeholder</title>
+    <style>
+        div#header {
+            grid-area: div_header;
+        }
+
+        nav {
+            grid-area: nav;
+        }
+
+        main {
+            grid-area: main;
+        }
+
+        ul#searchresults {
+            position: absolute;
+            z-index: 1;
+            width: 80%;
+            height: 90%;
+        }
+
+        body {
+            display: grid;
+            grid-template-areas:
+                'div_header div_header div_header div_header div_header div_header div_header div_header div_header div_header '
+                'nav main main main main main main main main main ';
+        }
+
+        span#icon {
+            grid-area: span_icon;
+        }
+
+        input#searchbar {
+            grid-area: input_searchbar;
+        }
+
+        span#account {
+            grid-area: span_account;
+        }
+
+        div#header {
+            display: grid;
+            grid-template-areas:
+                'span_icon input_searchbar input_searchbar input_searchbar input_searchbar input_searchbar input_searchbar input_searchbar input_searchbar span_account ';
+        }
+
+        button#library {
+            grid-area: button_library;
+        }
+
+        button#upload-songs {
+            grid-area: button_upload-songs;
+        }
+
+        nav {
+            display: grid;
+            grid-template-areas:
+                'button_library '
+                'button_upload-songs ';
+        }
+    </style>
+</head>
+
+<body>
+    <div id="header"><span id="icon"></span><input id="searchbar"><span id="account"></span></div>
+    <nav><button id="library"></button><button id="upload-songs"></button></nav>
+    <main></main>
+    <null></null>
+    <ul id="searchresults"></ul>
+    <null></null>
+</body>
+
+</html>

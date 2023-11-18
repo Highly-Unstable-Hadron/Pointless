@@ -1,0 +1,11 @@
+ [   // main window
+  div#header(^10%, _100%),
+  nav(_10%, ^90%), main(_90%, ^90%) || (_10%, ^90%), ul#searchresults(_80%, ^90%),  (_10%, ^90%)
+]
+div#header [
+    span#icon(_10%, ^100%)  input#searchbar(_80%, ^100%)  span#account(_10%, ^100%)
+]
+nav [
+    button#library(^15%, _100%),
+    button#upload-songs(^15%, _100%)
+]

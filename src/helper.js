@@ -36,29 +36,42 @@ const RuleTypes = {
     Where:          3,
     FnCall:         4,
     CompoundType:   5,
-    CaseInGuard:    6
+    CaseInGuard:    6,
+    Array:          7
+}
+
+const FrontendRuleTypes = {
+    Line: 0,
+    Window: 1,
+    Height: 2,
+    Width: 3,
+    Selector: 4,
+    Element: 5
 }
 
 class Token extends String {
-    tokenType;
-    constructor(value, type) {
+    isToken=true;
+    constructor(value, type, ln) {
         super(value)
-        this.tokenType = type
+        this.tokenType = type  // TODO: no need to store tokentype anymore
+        this.line_number = ln
     }
 }
 
 class Fit extends Array {
     remaining_line = "";
+    line_number=1;
     fail = false;
     throw = false;
-    constructor(line) {
+    constructor(line, line_number) {
         super()
         this.remaining_line = line;
+        this.line_number = line_number;
     }
     lazy_concat(...args) {
         if (this.fail) {
             if (this.throw) {
-                StringHandler.throwError(Exceptions.SyntaxError, this);
+                StringHandler.throwError(Exceptions.SyntaxError, this);   // TODO: don't use StringHandler.throwError, use handler.throwError
             }
             return this;
         }
@@ -98,7 +111,7 @@ class Fit extends Array {
             this.expected = expected.slice(1).reduce((acc, e) => acc + ` ${and_or} ${e}`, `${expected[0]}`);
         } else
             this.expected = (expected.len > 2 ? expected : "'" + expected + "'");
-        this.position = [position, this.remaining_line.length]
+        this.position = [position, this.remaining_line.length]   // TODO: this.remaining_line undefined for new Fits
         this.message = message ? message : "Expected "+ this.expected + '!'
         this.throw = throw_
         return this;
@@ -112,7 +125,8 @@ class PointlessException extends Error {   // Extends Error to allow for error t
     cursor_position=0;
     expected=null;
     message='';
-    constructor(message, line_number, concerned_line, cursor_position, expected)
+    parsing_rule='';
+    constructor(message, line_number, concerned_line, cursor_position, expected, parsing_rule)
     {
         if (cursor_position < 0)
             cursor_position = 0;
@@ -124,10 +138,14 @@ class PointlessException extends Error {   // Extends Error to allow for error t
         this.concerned_line = concerned_line
         this.expected = expected;
         this.erroneous_pos_=`${" ".repeat(this.cursor_position)}^`;
+        this.parsing_rule = parsing_rule;
 
     }
     toString () {  /** Returns formatted string to print during errors */
-        return `Error at line number ${this.line_number}:\n`+ 
+        let rule_parse_suffix = '';
+        if (this.parsing_rule)
+            rule_parse_suffix = ` while parsing rule '${this.parsing_rule}'`;
+        return `Error at line number ${this.line_number}${rule_parse_suffix}:\n`+ 
                `>>> ${this.concerned_line}\n` +
                `... ${this.erroneous_pos_}\n` +
                `${this.name}: ${this.message}\n`;
@@ -135,10 +153,10 @@ class PointlessException extends Error {   // Extends Error to allow for error t
 }
 
 class SyntaxError extends PointlessException {constructor() {super(...arguments);}}
-class IdentifierError extends PointlessException {constructor() {super(...arguments)}}
+class TypeError extends PointlessException {constructor() {super(...arguments)}}
 const Exceptions = {
     SyntaxError: SyntaxError,
-    IdentifierError: IdentifierError
+    TypeError: TypeError
 }
 
 class StringHandler {
@@ -148,14 +166,20 @@ class StringHandler {
     current_line_remnant = "";
     errors = [new Fit("")]
     LINE_COMMENT_REGEXP = /\/\/.*/g
-    BLOCK_COMMENT_REGEXP = /./g    // TODO:
     construct(string) {
         this.unmodified_lines = string.split('\r\n') // Remove comments
         this.lines = string.replaceAll(this.LINE_COMMENT_REGEXP, '').split('\r\n')
         this.current_line_remnant = this.lines[0];
     }
-    static throwError(error, fit) {
-        let e = new error(fit.message, fit.line_number, fit.line, fit.line.length - fit.position[1] + fit.position[0], fit.expected);
+    static throwError(error, fit) {  // TODO: only for Fit.lazy_concat, REMOVE
+        let e = new error(fit.message, fit.line_number, fit.line, fit.line.length - fit.position[1] + fit.position[0], fit.expected, fit.parsing_rule);
+        console.error(e.toString());
+        process.exit(1);
+    }
+    throwError(error, fit) {
+        // TODO: fix fit.parsing_rule bug
+        let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], 
+                        this.unmodified_lines[fit.line_number-1].length - fit.position[1] + fit.position[0], fit.expected, fit.parsing_rule);
         // throw e;  // Uncomment this line for error trace during debugging
         console.error(e.toString());
         process.exit(1);
@@ -168,11 +192,11 @@ class StringHandler {
                 input_string = input_string.trim();
             let match = input_string.match(expression);   // assumes expression doesn't have `g` flag
             if (!match || match.index !== 0) {
-                return new Fit(input_string).fitFailed(expected, 0, msg);
+                return new Fit(input_string, this.line_number).fitFailed(expected, 0, msg);
             }
-            let f = new Fit(input_string.slice(match[0].length));
+            let f = new Fit(input_string.slice(match[0].length), this.line_number);
             if (token_type != null)
-                f.push(new Token(match[0], token_type));
+                f.push(new Token(match[0], token_type, this.line_number));
             return f;
         }.bind(this);
     }
@@ -182,13 +206,13 @@ class StringHandler {
             if (literal != ' ' && literal != '\t' && literal != '\n')
                 string_stream = string_stream.trim();
             if (string_stream.slice(0, literal.length) === literal) {
-                let f = new Fit(string_stream.slice(literal.length))
+                let f = new Fit(string_stream.slice(literal.length), this.line_number)
                 if (capture !== null)
-                    f.push(new Token(literal, capture));
+                    f.push(new Token(literal, capture, this.line_number));
                 return f;
             }
             else {
-                return new Fit(string_stream).fitFailed(literal, 0);
+                return new Fit(string_stream, this.line_number).fitFailed(literal, 0);
             }
         }.bind(this);
     }
@@ -224,7 +248,7 @@ class StringHandler {
             return bigfit.lazy_concat(...fns_with_args);
         }.bind(this);
     }
-    fitAsManyAsPossible(fn) {
+    fitAsManyAsPossible(fn, parsing_rule="") {
         let bigfit = new Fit(this.current_line_remnant);
         while (true) {
             let fit = fn(this.current_line_remnant);
@@ -239,7 +263,7 @@ class StringHandler {
     fitOnce(fn, looking_ahead=false) {
         let fit = fn(this.current_line_remnant);
         if (fit.fail) {
-            fit.line_number = this.line_number
+            // fit.line_number = this.line_number
             fit.line = this.unmodified_lines[this.line_number - 1]
             fit.throw = !looking_ahead;
             if (!looking_ahead) {
@@ -272,7 +296,6 @@ class StringHandler {
                 if (this.current_line_remnant.length == 0)
                     continue;
                 fit.remaining_line = this.current_line_remnant;
-                // fit.push(new Token('\n', TokenTypes.Newline));
                 break;
             }
         } else {
@@ -280,10 +303,11 @@ class StringHandler {
         }
         return fit;
     }
-    encapsulateRule(rule_type, fit) {
-        if (fit.fail)
+    encapsulateRule(rule_type, fit, while_parsing_rule='') {
+        if (fit.fail) {
+            fit.parsing_rule = while_parsing_rule;
             return fit;
-        else {
+        } else {
             fit.rule_type = rule_type
             let f = new Fit(fit.remaining_line)
             f.push(fit)
@@ -334,13 +358,13 @@ function GCD(args) {  /** Finds the GCD of an array of numbers */
 }
 
 function fmtAST(ast) {
-    const RuleTypeStrings = ['TypeDef', 'Def', 'Guard', 'Where', 'FnCall', 'CType', 'Case', '..']
+    const RuleTypeStrings = ['TypeDef', 'Def', 'Guard', 'Where', 'FnCall', 'CType', 'Case', 'Array']
     output = ""
     for (line of ast) {
         let indent1 = '', indent2 = '', nl = '';
-        if (line.rule_type === RuleTypes.TypeDefinition || line.rule_type === RuleTypes.Assignment)
+        if (line.rule_type === RuleTypes.Assignment)
             nl = '\n'
-        else if (line.rule_type === RuleTypes.Where) {
+        else if (line.rule_type === RuleTypes.Where || line.wat_indent) {
             indent1 = '\n\t';
             indent2 = indent1 + '\t';
         } else if (line.rule_type === RuleTypes.Guard){
@@ -348,7 +372,9 @@ function fmtAST(ast) {
             indent2 = indent1 + '\t';
         } else if (line.rule_type === RuleTypes.CaseInGuard)
             indent1 = '\n\t\t\t';
-        if (line.tokenType) // i.e. line is a token
+        else if (line.wat_newline)
+            indent1 = '\n';
+        if (line.isToken || typeof line == "string") // i.e. line is a token
             output += line + ' '
         else
             if (line.rule_type && line.rule_type != RuleTypes.FnCall && line.rule_type != RuleTypes.CompoundType)
@@ -359,4 +385,4 @@ function fmtAST(ast) {
     return output
 }
 
-module.exports = { Token, Fit, StringHandler, Symbol, Exceptions, TokenTypes, RuleTypes, GCD, fmtAST }
+module.exports = { Token, Fit, StringHandler, Symbol, Exceptions, TokenTypes, RuleTypes, FrontendRuleTypes, GCD, fmtAST }

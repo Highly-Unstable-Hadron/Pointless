@@ -3,26 +3,28 @@ const { JSDOM }  = require("jsdom");
 const beautify_html = require("js-beautify").html;
 const { GCD, fmtAST } = require("./helper.js")
 const { parser } = require("./parser.js");
+const { constructWasm } = require("./prelude.js");
 
 const input_filepath   = process.argv[2] || "./__input__/home.ptless";
 const output_filepath  = process.argv[3] || "./__output__/home.html";
 const output_wasm_path = process.argv[4] || "./__output__/home.wasm";
+const run              = process.argv[5] || false;  // TODO: WASM executer
 
 require('util').inspect.defaultOptions.depth = 50;
 
 readFile(input_filepath, "utf-8", (err, fileContents) => {
     if (err)
         console.error(`File Read Error (reading "${input_filepath}"): ${err}`);
-    let token_stream = parser(fileContents);
+    let [token_stream, handler] = parser(fileContents);
     console.log(fmtAST(token_stream))
 
-    // writeFile(output_filepath, constructHtml(build_ast(token_stream)), 
+    // writeFile(output_filepath, constructHtml(token_stream), 
     //     (err) => err ? console.error(`File Write Error (writing to "${output_filepath}"): ${err}`) : null
     // );
 
-    // writeFile(output_wasm_path, constructWasm(language_ast(token_stream)),
-    //     (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
-    // );
+    writeFile(output_wasm_path, constructWasm(token_stream, handler),
+        (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
+    );
 })
 
 function constructHtml(ast) {
@@ -126,9 +128,4 @@ function constructCSS(symbols) {
             })
     }
     return CSS.toString()
-}
-
-function constructWasm(ast) {
-    // TODO: ykw
-    return ""
 }
