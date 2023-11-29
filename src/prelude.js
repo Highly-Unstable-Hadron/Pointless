@@ -28,14 +28,16 @@ const Prelude = new Map([
 const fileHandler = {};  // stores StringHandler object
 let exportables = [];  // functions to be exported to JS
 let SymbolTable = new Map(Prelude.entries());
-let ScopedSymbolTable = new Map();
+let current_scope = null;
 
 function genTypes(ast_snip) {
     if (typeof ast_snip == "string" || ast_snip.isToken) {
         if (Primitives.has(String(ast_snip)))
             return Primitives.get(String(ast_snip));
         else
-            fileHandler.handler.throwError(Exceptions.TypeError, new Fit('', ast_snip.line_number).fitFailed("", 0, `No such type '${ast_snip}'`, true));
+            fileHandler.handler.throwError(Exceptions.TypeError, 
+                new Fit('', ast_snip.line_number).fitFailed("", 0, `No such type '${ast_snip}'`, true)
+            );
     } else {
         let [functor, ...subTypes] = ast_snip;
         if (Functors.has(functor)) {
@@ -56,7 +58,15 @@ function genLiteral(ast_snip) {
         case TokenTypes.Boolean:
             return ['i32.const', Boolean[ast_snip]]
         case TokenTypes.Identifier:
-            return '$' + ast_snip   // TODO: check in symbol table
+            let isChild = SymbolTable.has(current_scope + '::' + ast_snip);  // TODO: search better
+            if (!SymbolTable.has(ast_snip) && !isChild) {
+                // fileHandler.handler.throwError(Exceptions.NameError, 
+                //     new Fit('', ast_snip.line_number).fitFailed('', 0, `No such identifier '${ast_snip}'`, true)
+                // );
+            }
+            if (isChild)
+                return '$' + current_scope + '::' + ast_snip;
+            return '$' + ast_snip
         default:
             throw `${ast_snip} IS NOT A LITERAL`
     }
@@ -74,51 +84,65 @@ function genFnCall(ast_snip) {
     ]
 }
 function genWhere(ast_snip) {
-    return []
+    return ast_snip.map((a) => genFunctionDef(a));
 }
 function genFunctionDef(ast_snip) {
-    let [[fnName, ...args], types, body, ...wheres] = ast_snip;
+    let [header, types, body, ...wheres] = ast_snip, fnName, args;
+    if (header.isToken)
+        fnName = header, args=new Fit('', header.line_number);
+    else
+        [fnName, ...args] = header;
     let resultType = types.pop();
     if (args.length != types.length) {
         args.fitFailed("", args.length, `Type signature's length does not match that of argument list`, true);
         fileHandler.handler.throwError(Exceptions.TypeError, args);
     }
-    // SymbolTable.set({signature: types, fnName: fnName})
-    exportables.push(['func', '$'+fnName]);
-    let output = [
-        'func', '$'+fnName,
-        ...args.map((arg, index) => ['param', '$'+arg, genTypes(types[index])]), 
-        ['result', genTypes(resultType)],
-        ...genWhere(wheres),
-        ...(body.rule_type == RuleTypes.Guard ? genGuards(body) : genFnCall(body)),
-    ];
+    if (!current_scope) {
+        exportables.push(['func', '$'+fnName]);
+    } else {
+        fnName = current_scope + '::' + fnName;
+    }
+    let old = current_scope;
+    current_scope = fnName;
+    SymbolTable.set(fnName, {argTypes: types, type: resultType});
+    args.forEach((arg, index) => SymbolTable.set(fnName + '::' + arg, {type: types[index]}))
+    if (!old)
+        compiled_wheres = genWhere(wheres);
+    else
+        compiled_wheres = [];
+    output = [
+                'func', '$'+fnName,
+                ...args.map((arg, index) => ['param', '$'+fnName+'::'+arg, genTypes(types[index])]), 
+                ['result', genTypes(resultType)],
+                ...(body.rule_type == RuleTypes.Guard ? genGuards(body) : genFnCall(body)),
+            ];
     output.wat_indent = true;
-    return output
-}
-function genConstantAssignment(ast_snip) {
-    let [[constant], type, body, ...wheres] = ast_snip;
-    if (type.length != 1) {
-        ast_snip.fitFailed('', 1, `Expected a single type specification for a constant, found ${type}`, true)
-        ast_snip.line_number = type.line_number;
-        fileHandler.handler.throwError(Exceptions.TypeError, ast_snip);
+    current_scope = old;
+    if (compiled_wheres.length == 0)
+        return output
+    else {
+        output = [...compiled_wheres, output]
+        output.unwrap = true;
+        return output
     }
-    [type] = type;
-    let wasm_type = genTypes(type);
-    return []
-}
-function genAssignment(ast_snip) {
-    if (ast_snip[0].isToken) {
-        return genConstantAssignment(ast_snip);
-    }
-    return genFunctionDef(ast_snip);
 }
 
 function constructWasm(ast, handler) {
     fileHandler.handler = handler;
-    ast = ast.map(genAssignment);
+    ast = ast.map((a) => genFunctionDef(a));
+    let unwrapped_ast = [];
+    for (defn of ast) {
+        if (defn.unwrap) {
+            for (sub_defn of defn) {
+                unwrapped_ast.push(sub_defn)
+            }
+        } else {
+            unwrapped_ast.push(defn)
+        }
+    }
     let output = [
         'module',
-        ...ast,
+        ...unwrapped_ast,
         ['export', ...exportables]
     ]
     output.at(-1).wat_newline = true;  // indentation in output

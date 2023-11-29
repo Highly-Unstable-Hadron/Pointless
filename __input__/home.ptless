@@ -1,7 +1,6 @@
 l `TST` a :: Integer => Integer => Integer = l + b  // comment
  where b :: Integer = a + b + c + d + e + f
  where c :: Integer = add(a+b, l-c, sub(z*w, x), t `mul` b)
- where z :: String = "Am string"
  where c(w, x) :: Integer => Integer => Integer = 
   | eq(w,x) => x
   | default => w
@@ -9,8 +8,6 @@ l `TST` a :: Integer => Integer => Integer = l + b  // comment
 LEN(s) :: Integer => Integer = 
  | add(s) => sub(s)  
  | default => add(s)
-
-// LEN(s) :: String => Integer = False
 
 BVV(a, b) :: Integer => Integer => Boolean = True
   where b :: Integer = 23

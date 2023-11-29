@@ -154,9 +154,11 @@ class PointlessException extends Error {   // Extends Error to allow for error t
 
 class SyntaxError extends PointlessException {constructor() {super(...arguments);}}
 class TypeError extends PointlessException {constructor() {super(...arguments)}}
+class NameError extends PointlessException {constructor() {super(...arguments)}}
 const Exceptions = {
     SyntaxError: SyntaxError,
-    TypeError: TypeError
+    TypeError: TypeError,
+    NameError: NameError
 }
 
 class StringHandler {

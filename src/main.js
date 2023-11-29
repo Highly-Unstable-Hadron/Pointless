@@ -15,14 +15,14 @@ require('util').inspect.defaultOptions.depth = 50;
 readFile(input_filepath, "utf-8", (err, fileContents) => {
     if (err)
         console.error(`File Read Error (reading "${input_filepath}"): ${err}`);
-    let [token_stream, handler] = parser(fileContents);
-    console.log(fmtAST(token_stream))
+    let [AST, handler] = parser(fileContents);
+    console.log(fmtAST(AST))
 
-    // writeFile(output_filepath, constructHtml(token_stream), 
+    // writeFile(output_filepath, constructHtml(AST), 
     //     (err) => err ? console.error(`File Write Error (writing to "${output_filepath}"): ${err}`) : null
     // );
 
-    writeFile(output_wasm_path, constructWasm(token_stream, handler),
+    writeFile(output_wasm_path, constructWasm(AST, handler),
         (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
     );
 })
