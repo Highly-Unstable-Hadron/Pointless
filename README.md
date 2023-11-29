@@ -1,4 +1,5 @@
 # Pointless
+
 A statically typed, functional (Haskell-esque) programming language which compiles to WASM.
 And some more stuff.  ~~Mostly less stuff.~~
 
