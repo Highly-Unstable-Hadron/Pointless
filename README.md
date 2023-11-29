@@ -1,4 +1,5 @@
 # Pointless
+
 A statically typed, functional (Haskell-esque) programming language which compiles to WASM.
 And some more stuff.  ~~Mostly less stuff.~~
 
@@ -11,5 +12,5 @@ Oh, and it's _pointless_.
 - Read with wonder the code of my jaw-droppingly slow recursive lexer-parser!
 - Use my blazingly fast _(!!!) completely unoptimized (!!!)_ compiled (and currently nonexistent) binary everywhere!
 
-**My life is pointless.  Don't you want yours to be the same?** <br/>
+**My life is pointless.  Now yours can be too!** <br/>
 **Join the _Pointless_ cult today!**
