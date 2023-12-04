@@ -35,8 +35,8 @@ function genTypes(ast_snip) {
         if (Primitives.has(String(ast_snip)))
             return Primitives.get(String(ast_snip));
         else
-            fileHandler.handler.throwError(Exceptions.TypeError, 
-                new Fit('', ast_snip.line_number).fitFailed("", 0, `No such type '${ast_snip}'`, true)
+            fileHandler.handler.throwError(Exceptions.TypeError,
+                Fit.tokenFailed(ast_snip, `No such type '${ast_snip}'`)
             );
     } else {
         let [functor, ...subTypes] = ast_snip;
@@ -93,10 +93,6 @@ function genFunctionDef(ast_snip) {
     else
         [fnName, ...args] = header;
     let resultType = types.pop();
-    if (args.length != types.length) {
-        args.fitFailed("", args.length, `Type signature's length does not match that of argument list`, true);
-        fileHandler.handler.throwError(Exceptions.TypeError, args);
-    }
     if (!current_scope) {
         exportables.push(['func', '$'+fnName]);
     } else {

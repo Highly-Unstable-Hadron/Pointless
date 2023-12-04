@@ -51,10 +51,11 @@ const FrontendRuleTypes = {
 
 class Token extends String {
     isToken=true;
-    constructor(value, type, ln) {
+    constructor(value, type, ln, range=[]) {
         super(value)
         this.tokenType = type  // TODO: no need to store tokentype anymore
         this.line_number = ln
+        this.range=range;
     }
 }
 
@@ -104,17 +105,27 @@ class Fit extends Array {
         this.remaining_line = last.remaining_line
         return this;
     }
-    fitFailed(expected, position, message=null, throw_=false, and_or = "and/or") {
+    fitFailed(expected, range, message=null, throw_=false, and_or = "and/or") {
         this.fail = true
         if (typeof expected != "string") {
             expected = [...new Set(expected)];  // weed out repeated elements
             this.expected = expected.slice(1).reduce((acc, e) => acc + ` ${and_or} ${e}`, `${expected[0]}`);
         } else
             this.expected = (expected.len > 2 ? expected : "'" + expected + "'");
-        this.position = [position, this.remaining_line.length]   // TODO: this.remaining_line undefined for new Fits
+        this.range = range
         this.message = message ? message : "Expected "+ this.expected + '!'
         this.throw = throw_
         return this;
+    }
+    static tokenFailed(token, message) {
+        let f = new Fit('', token.line_number);
+        f.fail = true;
+        f.expected = '';
+        f.line_number = token.line_number;
+        f.range = token.range;
+        f.message = message;
+        f.throw = true;
+        return f;
     }
 }
 
@@ -126,18 +137,18 @@ class PointlessException extends Error {   // Extends Error to allow for error t
     expected=null;
     message='';
     parsing_rule='';
-    constructor(message, line_number, concerned_line, cursor_position, expected, parsing_rule)
+    constructor(message, line_number, concerned_line, cursor_range, expected, parsing_rule)
     {
-        if (cursor_position < 0)
-            cursor_position = 0;
+        // if (cursor_position < 0)
+        //     cursor_position = 0;
         super(message);
         this.message = message;
         this.name = this.constructor.name;
         this.line_number = line_number;
-        this.cursor_position = cursor_position;
+        this.cursor_range = cursor_range;
         this.concerned_line = concerned_line
         this.expected = expected;
-        this.erroneous_pos_=`${" ".repeat(this.cursor_position)}^`;
+        this.erroneous_pos_=`${" ".repeat(this.cursor_range[0])}${"^".repeat(cursor_range[1] - cursor_range[0])}`;
         this.parsing_rule = parsing_rule;
 
     }
@@ -162,59 +173,75 @@ const Exceptions = {
 }
 
 class StringHandler {
+    characterNumber = 0;
     line_number = 1;
     lines = [];
     unmodified_lines = []
     current_line_remnant = "";
-    errors = [new Fit("")]
     LINE_COMMENT_REGEXP = /\/\/.*/g
     construct(string) {
-        this.unmodified_lines = string.split('\r\n') // Remove comments
-        this.lines = string.replaceAll(this.LINE_COMMENT_REGEXP, '').split('\r\n')
+        this.unmodified_lines = string.split('\r\n')
+        this.lines = string.replaceAll(this.LINE_COMMENT_REGEXP, '').split('\r\n') // Remove comments
         this.current_line_remnant = this.lines[0];
     }
     static throwError(error, fit) {  // TODO: only for Fit.lazy_concat, REMOVE
-        let e = new error(fit.message, fit.line_number, fit.line, fit.line.length - fit.position[1] + fit.position[0], fit.expected, fit.parsing_rule);
+        let e = new error(fit.message, fit.line_number, fit.line, fit.range, fit.expected, fit.parsing_rule);
         console.error(e.toString());
         process.exit(1);
     }
     throwError(error, fit) {
         // TODO: fix fit.parsing_rule bug
-        let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], 
-                        this.unmodified_lines[fit.line_number-1].length - fit.position[1] + fit.position[0], fit.expected, fit.parsing_rule);
+        let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], fit.range, fit.expected, fit.parsing_rule);
         // throw e;  // Uncomment this line for error trace during debugging
         console.error(e.toString());
         process.exit(1);
     }
     CompositeTerminals(expected, expression, token_type=null, msg=null) {
         // TODO: something better than regexp?
-        // TODO: fix position in errors
-        return function(input_string) {
-            if (!" \t\n".match(expression))   // i.e. expression does not check for whitespace (weak check)
-                input_string = input_string.trim();
+        return function ComposedCompositeTerminal(input_string) {
+            let startRange = this.characterNumber;
+            let originalLength = input_string.length, trimmedLength;
+
+            if (!" \t\n".match(expression)) {  // i.e. expression does not check for whitespace (weak check)
+                input_string = input_string.trimStart();
+                trimmedLength = input_string.length;
+                input_string = input_string.trimEnd();
+            }
+
             let match = input_string.match(expression);   // assumes expression doesn't have `g` flag
             if (!match || match.index !== 0) {
-                return new Fit(input_string, this.line_number).fitFailed(expected, 0, msg);
+                return new Fit(input_string, this.line_number).fitFailed(expected, [startRange, startRange+2], msg);
             }
+
+            this.characterNumber += (originalLength - trimmedLength + match[0].length);
+
             let f = new Fit(input_string.slice(match[0].length), this.line_number);
             if (token_type != null)
-                f.push(new Token(match[0], token_type, this.line_number));
+                f.push(new Token(match[0], token_type, this.line_number, [startRange, this.characterNumber]));
             return f;
         }.bind(this);
     }
     Literal(literal, capture=null) {
-        // TODO: fix position in errors
-        return function(string_stream) {
-            if (literal != ' ' && literal != '\t' && literal != '\n')
-                string_stream = string_stream.trim();
+        return function ComposedLiteral(string_stream) {
+            let startRange = this.characterNumber;
+            let originalLength = string_stream.length, trimmedLength;
+            if (literal != ' ' && literal != '\t' && literal != '\n') {
+                string_stream = string_stream.trimStart();
+                trimmedLength = string_stream.length;
+                string_stream = string_stream.trimEnd();
+            }
+
             if (string_stream.slice(0, literal.length) === literal) {
                 let f = new Fit(string_stream.slice(literal.length), this.line_number)
+
+                this.characterNumber += (originalLength - trimmedLength + literal.length);
+
                 if (capture !== null)
-                    f.push(new Token(literal, capture, this.line_number));
+                    f.push(new Token(literal, capture, this.line_number, [startRange, this.characterNumber]));
                 return f;
             }
             else {
-                return new Fit(string_stream, this.line_number).fitFailed(literal, 0);
+                return new Fit(string_stream, this.line_number).fitFailed(literal, [startRange, startRange + literal.length]);
             }
         }.bind(this);
     }
@@ -268,10 +295,6 @@ class StringHandler {
             // fit.line_number = this.line_number
             fit.line = this.unmodified_lines[this.line_number - 1]
             fit.throw = !looking_ahead;
-            if (!looking_ahead) {
-                if (this.errors.at(-1).remaining_line != fit.remaining_line)
-                    this.errors.push(fit);
-            }
             return fit;
         }
         return this.nextLine(fit);
@@ -295,6 +318,7 @@ class StringHandler {
             while (this.line_number < this.lines.length) {
                 this.current_line_remnant = this.lines[this.line_number]
                 this.line_number += 1
+                this.characterNumber = 0
                 if (this.current_line_remnant.length == 0)
                     continue;
                 fit.remaining_line = this.current_line_remnant;

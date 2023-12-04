@@ -2,8 +2,6 @@ const { Fit, StringHandler, Exceptions, TokenTypes, RuleTypes, FrontendRuleTypes
 
 const handler = new StringHandler();
 
-// TODO: something still wrong with exceptions
-
 const Tokens = {
     ParensOpen: "(", ParensClose: ")", Percentage: '%', Comma: ",", CssSelectorIdDemarcator: '#', Newline: '\n',  Overlay: "||", Height: "^", Width: "_",
     // ~~~~~
@@ -40,16 +38,6 @@ function parser(string) {
     // handler.fitOnce(ParseFrontend, true).lazy_concat(
     //     handler.fitOnce.bind(handler, ParseLanguage, true)
     // );
-
-    last_error = handler.errors.at(-1)
-    if (tokenised.fail) {
-        console.log(tokenised, last_error)
-        if (tokenised.expected === "' '") {
-            if (last_error && last_error.line && last_error.line_number)
-                handler.throwError(Exceptions.SyntaxError, last_error);
-        } else
-            handler.throwError(Exceptions.SyntaxError, tokenised);
-    }
     return [tokenised, handler];
 }
 
@@ -115,10 +103,7 @@ function ParseWidth(line) {
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 function ParseLanguage(line) {
-    let a = handler.fitAsManyAsPossible(ParseAssignment).lazy_concat(
-        handler.fitOnce.bind(handler, TokenChecks.WhiteSpace)  // TODO:...
-    );
-    return a;
+    return handler.fitAsManyAsPossible(ParseAssignment);
 }
 
 function ParseAssignment(line) {
@@ -132,21 +117,29 @@ function ParseAssignment(line) {
 function ParseWhereStatement(line) {
     return handler.encapsulateRule(RuleTypes.Where,
         handler.fitOnce(ComplexTerminals.ParseKeywordWhere, true).lazy_concat(
-            handler.fitOnce.bind(handler, TokenChecks.WhiteSpace),  // fitAtLeastOnce(Whitespace) not used since line is trimmed in terminals
-            handler.fitOnce.bind(handler, ParseNestedAssignment)
+            handler.fitOnce.bind(handler, TokenChecks.WhiteSpace, false),  // fitAtLeastOnce(Whitespace) not used since line is trimmed in terminals
+            handler.fitOnce.bind(handler, ParseNestedAssignment, false)
         )
     );
 }
 
 function ParseNestedAssignment(line) {
-    return handler.fitOnce(
+    // TODO: implement Name Errors here, assign numbers instead of tokens to identifiers in AST
+    let assignment = handler.fitOnce(
         handler.Either(ParseFunctionCallWithoutExpressions, ParseInfixFunctionCallWithoutExpressions, ComplexTerminals.ParseIdentifier), true)
     .lazy_concat(
-        handler.fitOnce.bind(handler, ParseTypeDeclaration),
+        handler.fitOnce.bind(handler, ParseTypeDeclaration, false),
         handler.fitOnce.bind(handler, TokenChecks.Assignment, false),
-        handler.fitOnce.bind(handler, handler.Either(ParseGuards, ParseExpression))
+        handler.fitOnce.bind(handler, handler.Either(ParseGuards, ParseExpression), false)
     );
-
+    if (assignment.length && assignment[0].isToken && assignment[1].length != 1) {
+        let token = assignment[0].length;
+        handler.throwError(Exceptions.TypeError, Fit.tokenFailed(token, "Type signature does not match argument length"));
+    } else if (assignment.length && !assignment[0].isToken && assignment[0].length != assignment[1].length) {
+        let token = assignment[0].length > assignment[1].length ? assignment[0][assignment[1].length] : assignment[1][assignment[0].length];
+        handler.throwError(Exceptions.TypeError, Fit.tokenFailed(token, "Type signature does not match argument length"));
+    }
+    return assignment;
 }
 
 function ParseGuards(line) {
@@ -156,9 +149,9 @@ function ParseGuards(line) {
 function ParseCaseOfGuard(line) {
     return handler.encapsulateRule(RuleTypes.CaseInGuard,
         handler.fitOnce(TokenChecks.Guard, true).lazy_concat(
-            handler.fitOnce.bind(handler, ParseExpression),
-            handler.fitOnce.bind(handler, TokenChecks.Arrow),
-            handler.fitOnce.bind(handler, ParseExpression)
+            handler.fitOnce.bind(handler, ParseExpression, false),
+            handler.fitOnce.bind(handler, TokenChecks.Arrow, false),
+            handler.fitOnce.bind(handler, ParseExpression, false)
         )
     );
 }
@@ -170,8 +163,8 @@ function ParseFunctionCallWithoutExpressions(line) {
             handler.fitOnce.bind(handler, handler.And(
                 ComplexTerminals.ParseIdentifier,
                 handler.fitAsManyAsPossible.bind(handler, handler.And([true], TokenChecks.Comma, ComplexTerminals.ParseIdentifier)),  
-            )),
-            handler.fitOnce.bind(handler, TokenChecks.ParensClose)
+            ), false),
+            handler.fitOnce.bind(handler, TokenChecks.ParensClose, false)
         )
     );
 }
@@ -182,7 +175,7 @@ function ParseInfixFunctionCallWithoutExpressions(line) {
             ComplexTerminals.ParseOperator, handler.And([true], TokenChecks.InfixCallMarker, ComplexTerminals.ParseIdentifier, TokenChecks.InfixCallMarker)
         ), 
         true),
-        handler.fitOnce.bind(handler, ComplexTerminals.ParseIdentifier)
+        handler.fitOnce.bind(handler, ComplexTerminals.ParseIdentifier, false)
     )
     if (!parsed.fail) {
         let temp = parsed[0];
@@ -193,13 +186,14 @@ function ParseInfixFunctionCallWithoutExpressions(line) {
 }
 
 function ParseInfixFunctionCall(line) {
-    // TODO: use expressions instead of identifiers without a thousand recursive calls
+    // TODO: use expressions instead of identifiers WITHOUT a thousand recursive calls
+    // TODO: implement operator precedence rules
     let parsed = handler.fitOnce(ComplexTerminals.ParseIdentifier, true).lazy_concat(
         handler.fitOnce.bind(handler, handler.Either(
             ComplexTerminals.ParseOperator, handler.And([true], TokenChecks.InfixCallMarker, ComplexTerminals.ParseIdentifier, TokenChecks.InfixCallMarker)
         ), 
         true),
-        handler.fitOnce.bind(handler, ParseExpression)
+        handler.fitOnce.bind(handler, ParseExpression, false)
     );
     if (!parsed.fail) {
         let temp = parsed[0];
@@ -216,8 +210,8 @@ function ParseFunctionCall(line) {
             handler.fitOnce.bind(handler, handler.And([],
                 ParseExpression,
                 handler.fitAsManyAsPossible.bind(handler, handler.And([true], TokenChecks.Comma, ParseExpression)),  
-            )),
-            handler.fitOnce.bind(handler, TokenChecks.ParensClose)
+            ), false),
+            handler.fitOnce.bind(handler, TokenChecks.ParensClose, false)
         )
     );
 }
@@ -225,8 +219,8 @@ function ParseFunctionCall(line) {
 function ParseTypeDeclaration(line) {
     return handler.encapsulateRule(RuleTypes.TypeDefinition,
         handler.fitOnce(TokenChecks.TypeDeclaration, true).lazy_concat(
-            handler.fitOnce.bind(handler, ParseTypeDefConstructor),
-            handler.fitAsManyAsPossible.bind(handler, handler.And([true], TokenChecks.Arrow, ParseTypeDefConstructor))
+            handler.fitOnce.bind(handler, ParseTypeDefConstructor, false),
+            handler.fitAsManyAsPossible.bind(handler, handler.And([true], TokenChecks.Arrow, ParseTypeDefConstructor), false)
         )
     );
 }
@@ -257,7 +251,7 @@ function ParseArray(line) {
     return handler.encapsulateRule(RuleTypes.Array,
         handler.fitOnce(TokenChecks.SquareBracesOpen, true).lazy_concat(
             handler.fitAsManyAsPossible.bind(handler, ParseTypeConstructor),
-            handler.fitOnce.bind(TokenChecks.SquareBracesClose)
+            handler.fitOnce.bind(handler, TokenChecks.SquareBracesClose, false)
         ));
 }
 
