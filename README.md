@@ -14,3 +14,7 @@ Oh, and it's _pointless_.
 
 **My life is pointless.  Now yours can be too!** <br/>
 **Join the _Pointless_ cult today!**
+
+
+### Update: 5/12
+WASM code generation completed!!  Apparently, though, it's not valid WASM.
