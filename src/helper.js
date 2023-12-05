@@ -139,8 +139,6 @@ class PointlessException extends Error {   // Extends Error to allow for error t
     parsing_rule='';
     constructor(message, line_number, concerned_line, cursor_range, expected, parsing_rule)
     {
-        // if (cursor_position < 0)
-        //     cursor_position = 0;
         super(message);
         this.message = message;
         this.name = this.constructor.name;
@@ -173,7 +171,6 @@ const Exceptions = {
 }
 
 class StringHandler {
-    characterNumber = 0;
     line_number = 1;
     lines = [];
     unmodified_lines = []
@@ -181,11 +178,14 @@ class StringHandler {
     LINE_COMMENT_REGEXP = /\/\/.*/g
     construct(string) {
         this.unmodified_lines = string.split('\r\n')
-        this.lines = string.replaceAll(this.LINE_COMMENT_REGEXP, '').split('\r\n') // Remove comments
+        this.lines = string.replaceAll(this.LINE_COMMENT_REGEXP, ' ')   // Remove comments
+                            .split('\r\n')
+                            .map((value) => value.trimEnd())
         this.current_line_remnant = this.lines[0];
     }
     static throwError(error, fit) {  // TODO: only for Fit.lazy_concat, REMOVE
         let e = new error(fit.message, fit.line_number, fit.line, fit.range, fit.expected, fit.parsing_rule);
+        // throw e;  // Uncomment this line for error trace during debugging
         console.error(e.toString());
         process.exit(1);
     }
@@ -196,48 +196,50 @@ class StringHandler {
         console.error(e.toString());
         process.exit(1);
     }
+    // TODO: fix cursor pos in errors
     CompositeTerminals(expected, expression, token_type=null, msg=null) {
         // TODO: something better than regexp?
         return function ComposedCompositeTerminal(input_string) {
-            let startRange = this.characterNumber;
-            let originalLength = input_string.length, trimmedLength;
+            if (input_string.length == 0) {
+                this.nextLine({remaining_line: ''});
+                input_string = this.current_line_remnant;
+            }
 
             if (!" \t\n".match(expression)) {  // i.e. expression does not check for whitespace (weak check)
                 input_string = input_string.trimStart();
-                trimmedLength = input_string.length;
-                input_string = input_string.trimEnd();
             }
+
+            let startRange = this.lines[this.line_number - 1].length - input_string.length;
 
             let match = input_string.match(expression);   // assumes expression doesn't have `g` flag
             if (!match || match.index !== 0) {
                 return new Fit(input_string, this.line_number).fitFailed(expected, [startRange, startRange+2], msg);
             }
 
-            this.characterNumber += (originalLength - trimmedLength + match[0].length);
-
             let f = new Fit(input_string.slice(match[0].length), this.line_number);
             if (token_type != null)
-                f.push(new Token(match[0], token_type, this.line_number, [startRange, this.characterNumber]));
+                f.push(new Token(match[0], token_type, this.line_number, [startRange, startRange + match[0].length]));
             return f;
         }.bind(this);
     }
     Literal(literal, capture=null) {
         return function ComposedLiteral(string_stream) {
-            let startRange = this.characterNumber;
-            let originalLength = string_stream.length, trimmedLength;
+            if (string_stream.trim().length == 0) {
+                this.nextLine({remaining_line: ''});
+                string_stream = this.current_line_remnant;
+            }
+
             if (literal != ' ' && literal != '\t' && literal != '\n') {
                 string_stream = string_stream.trimStart();
-                trimmedLength = string_stream.length;
-                string_stream = string_stream.trimEnd();
             }
+
+            let startRange = this.lines[this.line_number - 1].length - string_stream.length;
 
             if (string_stream.slice(0, literal.length) === literal) {
                 let f = new Fit(string_stream.slice(literal.length), this.line_number)
 
-                this.characterNumber += (originalLength - trimmedLength + literal.length);
-
                 if (capture !== null)
-                    f.push(new Token(literal, capture, this.line_number, [startRange, this.characterNumber]));
+                    f.push(new Token(literal, capture, this.line_number, [startRange, startRange + literal.length]));
                 return f;
             }
             else {
@@ -318,7 +320,6 @@ class StringHandler {
             while (this.line_number < this.lines.length) {
                 this.current_line_remnant = this.lines[this.line_number]
                 this.line_number += 1
-                this.characterNumber = 0
                 if (this.current_line_remnant.length == 0)
                     continue;
                 fit.remaining_line = this.current_line_remnant;

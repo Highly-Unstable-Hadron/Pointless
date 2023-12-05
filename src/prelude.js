@@ -15,19 +15,17 @@ const Boolean = {
     'False': '0x00000000'
 }
 
-const Prelude = new Map([
-    // TODO: how?
-    // [{signature: [0, 0, 0].fill('Number'), fnName:'+'}, {mapped_f: '.add', generic: true}],
-    // ['-', {signature: [0, 0, 0].fill('Number'), mapped_f: '.sub', generic: true}],
-    // ['*', {signature: [0, 0, 0].fill('Number'), mapped_f: '.mul', generic: true}],
-    // ['/', {signature: [0, 0, 0].fill('Number'), mapped_f:  '.div', generic: true}],
-    // ['**', {signature: [0, 0, 0].fill('Number'), mapped_f: '.exp', generic: true}],
-    // ['//', {signature: [0, 0, 0].fill('Number'), mapped_f: '.idiv', generic: true}],
-]);
-
 const fileHandler = {};  // stores StringHandler object
 let exportables = [];  // functions to be exported to JS
-let SymbolTable = new Map(Prelude.entries());
+let SymbolTable = new Map([
+    ['+', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.add'}],
+    ['-', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.sub'}],
+    ['*', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.mul'}],
+    ['/', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive:  'i32.div'}],
+    ['**', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.exp'}],
+    ['//', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.idiv'}],
+    ['eq', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.eq'}]
+]);
 let current_scope = null;
 
 function genTypes(ast_snip) {
@@ -47,7 +45,7 @@ function genTypes(ast_snip) {
         throw "NOT IMPLEMENTED";
     }
 }
-function genLiteral(ast_snip) {
+function genLiteral(ast_snip, call_fn = false) {
     switch (ast_snip.tokenType) {
         case TokenTypes.Integer:
             return ['i32.const', ast_snip]
@@ -57,22 +55,44 @@ function genLiteral(ast_snip) {
             throw 'NOT IMPLEMENTED' // TODO: implement
         case TokenTypes.Boolean:
             return ['i32.const', Boolean[ast_snip]]
+        case TokenTypes.Operator:
         case TokenTypes.Identifier:
-            let isChild = SymbolTable.has(current_scope + '::' + ast_snip);  // TODO: search better
-            if (!SymbolTable.has(ast_snip) && !isChild) {
-                // fileHandler.handler.throwError(Exceptions.NameError, 
-                //     new Fit('', ast_snip.line_number).fitFailed('', 0, `No such identifier '${ast_snip}'`, true)
-                // );
+            let pathExists = false;
+            let scopes = current_scope.split('::'), path;
+            for (let i = 0; (scopes.length > 1 && i < scopes.length) || (i < 2); i++) {
+                path = scopes.slice(0, i).join('::')
+                if (path)
+                    path += '::'
+                path += ast_snip
+                if (SymbolTable.has(path)) {
+                    pathExists = true;
+                    break;
+                }
             }
-            if (isChild)
-                return '$' + current_scope + '::' + ast_snip;
-            return '$' + ast_snip
+            if (!pathExists) {
+                fileHandler.handler.throwError(Exceptions.NameError,
+                    Fit.tokenFailed(ast_snip, `No such identifier '${ast_snip}'`)
+                );
+            }
+            let wasmPrimitive = SymbolTable.get(path).wasmPrimitive;
+            if (wasmPrimitive) {
+                return [wasmPrimitive]
+            }
+            return ['call', '$' + path]
         default:
             throw `${ast_snip} IS NOT A LITERAL`
     }
 }
 function genGuards(ast_snip) {
-    return []
+    if (ast_snip.length == 0)
+        return [];
+    return [['if', ...genFnCall(ast_snip[0][0]), 
+                ['then', ...genFnCall(ast_snip[0][1])], 
+                ['else', ...genGuards(ast_snip.slice(1,))]].map((value) => {
+                    if (typeof value != 'string')
+                        value.wat_indent = true;
+                    return value;
+                })]
 }
 function genFnCall(ast_snip) {
     if (ast_snip.isToken)
@@ -80,7 +100,7 @@ function genFnCall(ast_snip) {
     let [fnName, ...args] = ast_snip;
     return [
         ...args.map(genFnCall).flat(),
-        'call', '$'+fnName  // TODO: implement WASM's prelude function syntax, type checking
+        ...genLiteral(fnName, true)  // TODO: implement type checking
     ]
 }
 function genWhere(ast_snip) {
@@ -100,7 +120,7 @@ function genFunctionDef(ast_snip) {
     }
     let old = current_scope;
     current_scope = fnName;
-    SymbolTable.set(fnName, {argTypes: types, type: resultType});
+    SymbolTable.set(String(fnName), {argTypes: types, type: resultType});
     args.forEach((arg, index) => SymbolTable.set(fnName + '::' + arg, {type: types[index]}))
     if (!old)
         compiled_wheres = genWhere(wheres);

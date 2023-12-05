@@ -4,6 +4,7 @@ const beautify_html = require("js-beautify").html;
 const { GCD, fmtAST } = require("./helper.js")
 const { parser } = require("./parser.js");
 const { constructWasm } = require("./prelude.js");
+const { parseWat, toBinary} = require("wabt");
 
 const input_filepath   = process.argv[2] || "./__input__/home.ptless";
 const output_filepath  = process.argv[3] || "./__output__/home.html";
@@ -25,6 +26,8 @@ readFile(input_filepath, "utf-8", (err, fileContents) => {
     writeFile(output_wasm_path, constructWasm(AST, handler),
         (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
     );
+
+    // let WASM = parseWat(output_wasm_path).toBinary()
 })
 
 function constructHtml(ast) {

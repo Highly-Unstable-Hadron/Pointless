@@ -1,9 +1,17 @@
 (module 
-	(func $TST::b (result i32) $a $b $c $d $e $f call $+ call $+ call $+ call $+ call $+) 
-	(func $TST::c (result i32) $a $b call $+ $l $c call $- $z $w call $* $x call $sub $t $b call $mul call $add) 
-	(func $TST::c (param $TST::c::w i32) (param $TST::c::x i32) (result i32)) 
-	(func $TST (param $TST::l i32) (param $TST::a i32) (result i32) $TST::l $TST::b call $+) 
-	(func $LEN (param $LEN::s i32) (result i32)) 
+	(func $generic (param $generic::s i32) (result i32) (if call $generic::s i32.const 2 i32.eq 
+	(then call $generic::s call $generic) 
+	(else (if i32.const 0xFFFFFFFF 
+	(then call $generic::s call $generic) 
+	(else))))) 
 	(func $BVV::b (result i32) i32.const 23) 
 	(func $BVV (param $BVV::a i32) (param $BVV::b i32) (result i32) i32.const 0xFFFFFFFF) 
-(export (func $TST) (func $LEN) (func $BVV))) 
+	(func $TST::b (result i32) call $TST::a call $TST::l call $generic i32.add) 
+	(func $TST::cf (param $TST::cf::w i32) (param $TST::cf::x i32) (result i32) (if call $TST::b i32.const 2 i32.eq 
+	(then call $TST::b) 
+	(else (if i32.const 0xFFFFFFFF 
+	(then call $TST::b) 
+	(else))))) 
+	(func $TST::c (result i32) call $TST::a call $TST::b i32.add call $TST::l call $TST::b i32.sub call $TST::a call $TST::b call $TST::cf call $TST::a call $TST::b i32.mul call $TST::a call $TST::b call $BVV call $generic) 
+	(func $TST (param $TST::l i32) (param $TST::a i32) (result i32) call $TST::l call $TST::b i32.add) 
+(export (func $generic) (func $BVV) (func $TST))) 
