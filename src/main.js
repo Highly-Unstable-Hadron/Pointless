@@ -3,8 +3,9 @@ const { JSDOM }  = require("jsdom");
 const beautify_html = require("js-beautify").html;
 const { GCD, fmtAST } = require("./helper.js")
 const { parser } = require("./parser.js");
+const { semanticAnalyzer } = require("./semantic_analysis.js");
 const { constructWasm } = require("./prelude.js");
-const { parseWat, toBinary} = require("wabt");
+const wabt = require("wabt");
 
 const input_filepath   = process.argv[2] || "./__input__/home.ptless";
 const output_filepath  = process.argv[3] || "./__output__/home.html";
@@ -19,13 +20,16 @@ readFile(input_filepath, "utf-8", (err, fileContents) => {
     let [AST, handler] = parser(fileContents);
     console.log(fmtAST(AST))
 
+    let context = semanticAnalyzer(AST, handler);
+    console.log(context);
+
     // writeFile(output_filepath, constructHtml(AST), 
     //     (err) => err ? console.error(`File Write Error (writing to "${output_filepath}"): ${err}`) : null
     // );
 
-    writeFile(output_wasm_path, constructWasm(AST, handler),
-        (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
-    );
+    // writeFile(output_wasm_path, constructWasm(AST, handler),
+    //     (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
+    // );
 
     // let WASM = parseWat(output_wasm_path).toBinary()
 })

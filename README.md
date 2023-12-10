@@ -16,5 +16,5 @@ Oh, and it's _pointless_.
 **Join the _Pointless_ cult today!**
 
 
-### Update: 5/12
+### Update: 5/12/2023
 WASM code generation completed!!  Apparently, though, it's not valid WASM.

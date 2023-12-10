@@ -132,13 +132,6 @@ function ParseNestedAssignment(line) {
         handler.fitOnce.bind(handler, TokenChecks.Assignment, false),
         handler.fitOnce.bind(handler, handler.Either(ParseGuards, ParseExpression), false)
     );
-    if (assignment.length && assignment[0].isToken && assignment[1].length != 1) {
-        let token = assignment[0].length;
-        handler.throwError(Exceptions.TypeError, Fit.tokenFailed(token, "Type signature does not match argument length"));
-    } else if (assignment.length && !assignment[0].isToken && assignment[0].length != assignment[1].length) {
-        let token = assignment[0].length > assignment[1].length ? assignment[0][assignment[1].length] : assignment[1][assignment[0].length];
-        handler.throwError(Exceptions.TypeError, Fit.tokenFailed(token, "Type signature does not match argument length"));
-    }
     return assignment;
 }
 
@@ -256,24 +249,8 @@ function ParseArray(line) {
 }
 
 function ParseExpression(line) {   // Parses {ParenthesesOpen?, Either(ParseFunctionCall, ParseInfixFunctionCall, ParseIdentifier), ParenthesesClose?}
-    // TODO: fix no_closing_parens
-
-    // let old_line_remnant = handler.current_line_remnant;
-    // let old_line_num = handler.line_number;
-    // let no_closing_parens = (handler.fitMaybeOnce(TokenChecks.ParensOpen).length == 0)  // To match number of closing parens
-    // handler.current_line_remnant = old_line_remnant;
-    // handler.line_number = old_line_num;
-    // return no_closing_parens ?
-
-    //return handler.encapsulateRule(RuleTypes.Expression,
-    return handler.fitOnce(handler.Either(ParseFunctionCall, ParseInfixFunctionCall, ParseTypeConstructor, ComplexTerminals.ParseIdentifier), true)
-    //);
-
-                            //   : handler.fitOnce(
-                            //     handler.And(TokenChecks.ParensOpen, 
-                            //         handler.Either(ParseFunctionCall, ParseInfixFunctionCall, ComplexTerminals.ParseIdentifier), 
-                            //         TokenChecks.ParensClose), 
-                            //     true);
+    // TODO: implement parenthesised expressions
+    return handler.fitOnce(handler.Either(ParseFunctionCall, ParseInfixFunctionCall, ParseTypeConstructor, ComplexTerminals.ParseIdentifier), true);
 }
 
 module.exports = { parser }

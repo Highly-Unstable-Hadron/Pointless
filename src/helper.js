@@ -53,7 +53,7 @@ class Token extends String {
     isToken=true;
     constructor(value, type, ln, range=[]) {
         super(value)
-        this.tokenType = type  // TODO: no need to store tokentype anymore
+        this.tokenType = type
         this.line_number = ln
         this.range=range;
     }
@@ -136,8 +136,7 @@ class PointlessException extends Error {   // Extends Error to allow for error t
     cursor_position=0;
     expected=null;
     message='';
-    parsing_rule='';
-    constructor(message, line_number, concerned_line, cursor_range, expected, parsing_rule)
+    constructor(message, line_number, concerned_line, cursor_range, expected)
     {
         super(message);
         this.message = message;
@@ -147,17 +146,15 @@ class PointlessException extends Error {   // Extends Error to allow for error t
         this.concerned_line = concerned_line
         this.expected = expected;
         this.erroneous_pos_=`${" ".repeat(this.cursor_range[0])}${"^".repeat(cursor_range[1] - cursor_range[0])}`;
-        this.parsing_rule = parsing_rule;
-
     }
     toString () {  /** Returns formatted string to print during errors */
         let rule_parse_suffix = '';
         if (this.parsing_rule)
             rule_parse_suffix = ` while parsing rule '${this.parsing_rule}'`;
-        return `Error at line number ${this.line_number}${rule_parse_suffix}:\n`+ 
-               `>>> ${this.concerned_line}\n` +
-               `... ${this.erroneous_pos_}\n` +
-               `${this.name}: ${this.message}\n`;
+        return `\x1b[31mError at line number \x1b[34m${this.line_number}${rule_parse_suffix}\x1b[0m\n`+ 
+               `\x1b[34m>>>\x1b[0m ${this.concerned_line}\n` +
+               `\x1b[34m... ${this.erroneous_pos_}\x1b[0m\n` +
+               `\x1b[4m\x1b[35m${this.name}\x1b[0m: \x1b[90m${this.message}\x1b[0m\n`;
     }
 }
 
@@ -175,6 +172,7 @@ class StringHandler {
     lines = [];
     unmodified_lines = []
     current_line_remnant = "";
+    errorOccurred = false;
     LINE_COMMENT_REGEXP = /\/\/.*/g
     construct(string) {
         this.unmodified_lines = string.split('\r\n')
@@ -184,19 +182,22 @@ class StringHandler {
         this.current_line_remnant = this.lines[0];
     }
     static throwError(error, fit) {  // TODO: only for Fit.lazy_concat, REMOVE
-        let e = new error(fit.message, fit.line_number, fit.line, fit.range, fit.expected, fit.parsing_rule);
+        let e = new error(fit.message, fit.line_number, fit.line, fit.range, fit.expected);
         // throw e;  // Uncomment this line for error trace during debugging
         console.error(e.toString());
         process.exit(1);
     }
     throwError(error, fit) {
-        // TODO: fix fit.parsing_rule bug
-        let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], fit.range, fit.expected, fit.parsing_rule);
+        let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], fit.range, fit.expected);
         // throw e;  // Uncomment this line for error trace during debugging
         console.error(e.toString());
         process.exit(1);
     }
-    // TODO: fix cursor pos in errors
+    throwErrorWithoutExit(error, fit) {
+        let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], fit.range, fit.expected);
+        this.errorOccurred = true;
+        console.error(e.toString());
+    }
     CompositeTerminals(expected, expression, token_type=null, msg=null) {
         // TODO: something better than regexp?
         return function ComposedCompositeTerminal(input_string) {
@@ -279,7 +280,7 @@ class StringHandler {
             return bigfit.lazy_concat(...fns_with_args);
         }.bind(this);
     }
-    fitAsManyAsPossible(fn, parsing_rule="") {
+    fitAsManyAsPossible(fn) {
         let bigfit = new Fit(this.current_line_remnant);
         while (true) {
             let fit = fn(this.current_line_remnant);

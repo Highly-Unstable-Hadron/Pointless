@@ -3,11 +3,13 @@ generic(s) :: Integer => Integer =
  | True => generic(s)
 // huh
 BVV(a, b) :: Integer => Integer => Boolean = True
-  where b :: Integer = 23
+  where b :: Integer = BVV(b, a)
 
 l `TST` a :: Integer => Integer => Integer = l + b  // comment
+ where bru :: Integer = cf(af, b)
  where b :: Integer = a + generic(l)
  where cf(w, x) :: Integer => Integer => Integer = 
   | b `eq` 2 => b
   | True => b
  where c :: Integer = generic(a+b, l-b, a `cf` b, a * b, a `BVV` b)
+ where af :: String = "me be string"
