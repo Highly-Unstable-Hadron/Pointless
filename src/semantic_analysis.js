@@ -86,7 +86,7 @@ function* functionDefinition(ast) {
     yield true;  // function name and type have been recorded for referencing elsewhere in the code
 
     let generators = [];
-    let localIdentifiers = new Set();
+    let localIdentifiers = new Set(args.map(value => String(value)));
     locals[stringFnName] = {};
     wheres.forEach(where_stmt => {
         let yielded = local_defs(where_stmt, stringFnName, localIdentifiers);
@@ -96,13 +96,14 @@ function* functionDefinition(ast) {
     generators.forEach(generator => generator.next());
 
     let bodySignature = verifyBody(body, [stringFnName]);  // TODO: fix bug
-    // console.log(bodySignature);
     if (bodySignature) {
-        bodySignature = String(Object.values(bodySignature).at(-1));
+        if (!bodySignature.isToken)
+            bodySignature = String(Object.values(bodySignature).at(-1));
         if (bodySignature != String(resultType))
             Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, 
-                body.fitFailed('', [body[0].range[0], body.pop().range[1]], 
-                    `${stringFnName} is supposed to return '${String(resultType)}' but instead returns ${bodySignature}`, true));
+                body.fitFailed('', [Math.min(body[0].range[0], body[1].range[0]), // Function and first arg are swapped in infix functions
+                                    body.pop().range[1]], 
+                    `'${stringFnName}' is supposed to return '${String(resultType)}' but instead returns '${bodySignature}'`, true));
     }
 
     yield true;
@@ -138,14 +139,15 @@ function* local_defs(ast, parentName, localIdentifiers) {
 
     yield true;  // function name and type have been recorded for referencing elsewhere in the code
 
-    let bodySignature = verifyBody(body, [parentName, stringFnName]);  // TODO: fix bug
-    // console.log(bodySignature);
+    let bodySignature = verifyBody(body, [parentName, stringFnName]);
     if (bodySignature) {
-        bodySignature = String(Object.values(bodySignature).at(-1));
+        if (!bodySignature.isToken)
+            bodySignature = String(Object.values(bodySignature).at(-1));
         if (bodySignature != String(resultType))
             Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, 
-                body.fitFailed('', [body[0].range[0], body.pop().range[1]], 
-                    `${stringFnName} is supposed to return '${String(resultType)}' but instead returns ${bodySignature}`, true));
+                body.fitFailed('', [Math.min(body[0].range[0], body[1].range[0]),  // Function and first arg are swapped in infix functions
+                                    body.pop().range[1]], 
+                    `'${stringFnName}' is supposed to return '${String(resultType)}' but instead returns '${bodySignature}'`, true));
     }
 
     yield true;
@@ -156,17 +158,31 @@ function verifyBody(ast, scopes) {
         // TODO: implement
     } else if (ast.rule_type == RuleTypes.FnCall) {
         let [fnName, ...args] = ast;
+
+        let original_scopes = [...scopes];
+        for (let i in scopes) {
+            if (scopes[i] == String(fnName)) {
+                // Not doing this messes up `lookup()` and makes it search too deep, since `signature.function` has attribute `function` too
+                scopes = scopes.slice(0, i);
+                break;
+            }
+        }
+
         let fnSignature = lookup(fnName, scopes);
 
-        if (!fnSignature)
-            return Handler.handler.throwErrorWithoutExit(Exceptions.NameError,
-                Fit.tokenFailed(fnName, "No such function found in source"));
+        if (String(fnName) == 'BVV')
+            console.log(fnSignature, scopes, fnName);
 
         if (!fnSignature)
             return Handler.handler.throwErrorWithoutExit(Exceptions.NameError,
                 Fit.tokenFailed(fnName, "No such function found in source"));
 
-        if (args.length > (sign = Object.values(fnSignature)).length + 1)
+        if (!fnSignature)
+            return Handler.handler.throwErrorWithoutExit(Exceptions.NameError,
+                Fit.tokenFailed(fnName, "No such function found in source"));
+
+        let sign = Object.values(fnSignature);
+        if (args.length > sign.length + 1)
             return Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, 
                 Fit.tokenFailed(fnName, 
                     `Too many arguments provided for function of signature '${sign.join(' => ')}'`));
@@ -174,7 +190,7 @@ function verifyBody(ast, scopes) {
         let index = 0
         for (let arg of args) {
             if (arg.isToken) {  // TODO: implement hardcoded constants
-                let argSignature = lookup(arg, scopes);
+                let argSignature = lookup(arg, original_scopes);
                 if (!argSignature)
                     Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(arg, "No such identifier found!"));
                 else {
@@ -186,16 +202,18 @@ function verifyBody(ast, scopes) {
                             Fit.tokenFailed(arg, `Expected type '${sign[index]}', instead got argument of type '${argSignature}'`))
                 }
             } else {
-                let argSignature = verifyBody(arg, scopes);  // TODO: fix bug
-                // console.log(argSignature);
+                let argSignature = verifyBody(arg, original_scopes);
+                let nestedFn = String(arg[0]);
                 if (argSignature) {
-                    if (argSignature[String(arg)])
-                        argSignature = argSignature[String(arg)];
+                    if (argSignature[nestedFn])
+                        argSignature = argSignature[nestedFn];
 
-                    if (String(argSignature != String(sign[index])))
+                    if (String(argSignature) != String(sign[index])) {
                         Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, 
-                            arg.fitFailed('', [arg[0].range[0], arg.pop().range[1]], 
+                            arg.fitFailed('', [Math.min(arg[0].range[0], arg[1].range[0]), // Function and first arg are swapped in infix functions
+                                               arg.pop().range[1]],
                                 `Expected type '${sign[index]}', instead got argument of type '${argSignature}'`, true));
+                        }
                 }
             }
             index += 1;
@@ -207,12 +225,14 @@ function verifyBody(ast, scopes) {
 
 function lookup(identifier, scopes) {
     let identifier_signature;
-    if (scopes.length == 2)
-        identifier_signature = locals[scopes[0]][scopes[1]][identifier];  // Arguments of parent local function
-    if (!identifier_signature)
-        identifier_signature = locals[scopes[0]][identifier];  // A local function
-    if (!identifier_signature)
-        identifier_signature = signatures[scopes[0]][identifier];   // Arguments of parent global function
+    if (scopes.length > 0) {
+        if (scopes.length == 2)
+            identifier_signature = locals[scopes[0]][scopes[1]][identifier];  // Arguments of parent local function
+        if (!identifier_signature)
+            identifier_signature = locals[scopes[0]][identifier];  // A local function
+        if (!identifier_signature)
+            identifier_signature = signatures[scopes[0]][identifier];   // Arguments of parent global function
+    }
     if (!identifier_signature)
         identifier_signature = signatures[identifier];  // A global function
     return identifier_signature;
