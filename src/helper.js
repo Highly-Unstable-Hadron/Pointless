@@ -173,6 +173,8 @@ class StringHandler {
     unmodified_lines = []
     current_line_remnant = "";
     errorOccurred = false;
+    noNewlines = false;
+    nextFail = false;
     LINE_COMMENT_REGEXP = /\/\/.*/g
     construct(string) {
         this.unmodified_lines = string.split('\r\n')
@@ -252,6 +254,8 @@ class StringHandler {
         return function BoundEither(line) {
             let errors = []
             let old_line_num = this.line_number;
+            let line_length = this.lines[this.line_number - 1].length;
+            let startRange = line_length - line.length;
             for (var fn of fns) {
                 this.current_line_remnant = line;  // backtrack
                 this.line_number = old_line_num;
@@ -261,7 +265,7 @@ class StringHandler {
                 else
                     return fit;
             } 
-            return new Fit(this.current_line_remnant).fitFailed(errors, 0);
+            return new Fit(this.current_line_remnant).fitFailed(errors, [startRange, line_length]);
         }.bind(this);
     }
     And(looking_ahead=null, ...fns) {
@@ -284,7 +288,8 @@ class StringHandler {
         let bigfit = new Fit(this.current_line_remnant);
         while (true) {
             let fit = fn(this.current_line_remnant);
-            if (fit.fail) {
+            if (fit.fail || this.nextFail) {
+                this.nextFail = false;
                 return bigfit;
             }
             bigfit.concat(this.nextLine(fit));
@@ -294,8 +299,9 @@ class StringHandler {
     }
     fitOnce(fn, looking_ahead=false) {
         let fit = fn(this.current_line_remnant);
-        if (fit.fail) {
-            // fit.line_number = this.line_number
+        if (fit.fail || this.nextFail) {
+            this.nextFail = false;
+            fit.line_number = this.line_number
             fit.line = this.unmodified_lines[this.line_number - 1]
             fit.throw = !looking_ahead;
             return fit;
@@ -304,7 +310,8 @@ class StringHandler {
     }
     fitMaybeOnce(fn) {
         let fit = fn(this.current_line_remnant);
-        if (fit.fail) {
+        if (fit.fail || this.nextFail) {
+            this.nextFail = false;
             return new Fit(this.current_line_remnant);
         }
         return this.nextLine(fit);
@@ -318,6 +325,9 @@ class StringHandler {
         if (fit.remaining_line.length > 0) {
             this.current_line_remnant = fit.remaining_line;
         } else if (this.line_number < this.lines.length) {
+            if (this.noNewlines)
+                this.nextFail = true;  // next token must fail
+
             while (this.line_number < this.lines.length) {
                 this.current_line_remnant = this.lines[this.line_number]
                 this.line_number += 1

@@ -21,13 +21,12 @@ readFile(input_filepath, "utf-8", (err, fileContents) => {
     console.log(fmtAST(AST))
 
     let context = semanticAnalyzer(AST, handler);
-    console.log(context);
 
     // writeFile(output_filepath, constructHtml(AST), 
     //     (err) => err ? console.error(`File Write Error (writing to "${output_filepath}"): ${err}`) : null
     // );
 
-    // writeFile(output_wasm_path, constructWasm(AST, handler),
+    // writeFile(output_wasm_path, constructWasm(AST, context, handler),
     //     (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
     // );
 

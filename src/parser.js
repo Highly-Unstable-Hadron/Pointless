@@ -29,15 +29,29 @@ const ComplexTerminals = {
     ParseFloat:         handler.CompositeTerminals("number with a fractional part", /-?\d+\.\d+/, TokenTypes.Float),
     ParseString:        handler.CompositeTerminals("string", /\".*\"/, TokenTypes.String),
     ParseKeywordWhere:  handler.Literal('where', null),    // don't capture
-    ParseBoolean:       handler.CompositeTerminals("boolean", /True|False/, TokenTypes.Boolean)
+    ParseBoolean:       handler.CompositeTerminals("boolean", /True|False/, TokenTypes.Boolean),
+    ParseWord:          handler.CompositeTerminals(null, /\S*/, 0)  // exists only for use in parser(), to find range for exception
 }
 
 function parser(string) {
     handler.construct(string);
-    let tokenised = handler.fitOnce(ParseLanguage, true)
+    let tokenised = tokenised_copy = handler.fitOnce(ParseLanguage, true)
     // handler.fitOnce(ParseFrontend, true).lazy_concat(
     //     handler.fitOnce.bind(handler, ParseLanguage, true)
     // );
+
+    // Throwing error if anything remains on the string stream, unparsed
+    // TODO: fix and finish
+    let old = '';
+    while (!tokenised_copy.isToken) {
+        old = tokenised_copy.remaining_line;
+        tokenised_copy = tokenised_copy.at(-1);
+    }
+    if (old.trim().length > 0) {
+        let token = ComplexTerminals.ParseWord(old);
+        handler.throwError(Exceptions.SyntaxError, Fit.tokenFailed(token, `Unexpected token '${token}'`));
+    }
+
     return [tokenised, handler];
 }
 
@@ -140,13 +154,17 @@ function ParseGuards(line) {
 }
 
 function ParseCaseOfGuard(line) {
-    return handler.encapsulateRule(RuleTypes.CaseInGuard,
+    handler.noNewlines = true;
+    let out = handler.encapsulateRule(RuleTypes.CaseInGuard,
         handler.fitOnce(TokenChecks.Guard, true).lazy_concat(
             handler.fitOnce.bind(handler, ParseExpression, false),
             handler.fitOnce.bind(handler, TokenChecks.Arrow, false),
             handler.fitOnce.bind(handler, ParseExpression, false)
         )
     );
+    handler.noNewlines = false;
+    handler.nextFail = false;
+    return out;
 }
 
 function ParseFunctionCallWithoutExpressions(line) {
@@ -179,14 +197,15 @@ function ParseInfixFunctionCallWithoutExpressions(line) {
 }
 
 function ParseInfixFunctionCall(line) {
-    // TODO: use expressions instead of identifiers WITHOUT a thousand recursive calls
     // TODO: implement operator precedence rules
     let parsed = handler.fitOnce(ComplexTerminals.ParseIdentifier, true).lazy_concat(
+    // let parsed = handler.fitOnce(ParseParensedExpression, true).lazy_concat(
         handler.fitOnce.bind(handler, handler.Either(
             ComplexTerminals.ParseOperator, handler.And([true], TokenChecks.InfixCallMarker, ComplexTerminals.ParseIdentifier, TokenChecks.InfixCallMarker)
         ), 
         true),
         handler.fitOnce.bind(handler, ParseExpression, false)
+        // handler.fitOnce.bind(handler, ParseParensedExpression, false)
     );
     if (!parsed.fail) {
         let temp = parsed[0];
@@ -197,16 +216,30 @@ function ParseInfixFunctionCall(line) {
 }
 
 function ParseFunctionCall(line) {
-    return handler.encapsulateRule(RuleTypes.FnCall,
+    // TODO: fix overfitting, implement new syntax
+    // let should_toggle = true;
+    // if (handler.noNewlines)
+    //     should_toggle = false;
+    // handler.noNewlines = true;
+
+    let out = handler.encapsulateRule(RuleTypes.FnCall,
         handler.fitOnce(ComplexTerminals.ParseIdentifier, true).lazy_concat(
             handler.fitOnce.bind(handler, TokenChecks.ParensOpen, true),
-            handler.fitOnce.bind(handler, handler.And([],
+            handler.fitOnce.bind(handler, handler.And([true],
+                // ParseParensedExpression,
                 ParseExpression,
-                handler.fitAsManyAsPossible.bind(handler, handler.And([true], TokenChecks.Comma, ParseExpression)),  
-            ), false),
+                handler.fitAsManyAsPossible.bind(handler, handler.And([true], TokenChecks.Comma, ParseExpression))
+                // handler.fitAsManyAsPossible.bind(handler, ParseParensedExpression)
+            ), true),
             handler.fitOnce.bind(handler, TokenChecks.ParensClose, false)
         )
     );
+
+    // if (should_toggle) {
+    //     handler.noNewlines = false;
+    //     handler.nextFail = false;
+    // }
+    return out;
 }
 
 function ParseTypeDeclaration(line) {
@@ -236,7 +269,7 @@ function ParseTypeDefConstructor(line) {
 
 function ParseTypeConstructor(line) {
     return handler.fitOnce(
-        handler.Either(ComplexTerminals.ParseInteger, ComplexTerminals.ParseFloat, ComplexTerminals.ParseString, ComplexTerminals.ParseBoolean), true
+        handler.Either(ComplexTerminals.ParseFloat, ComplexTerminals.ParseInteger, ComplexTerminals.ParseString, ComplexTerminals.ParseBoolean), true
     )
 }
 
@@ -249,8 +282,18 @@ function ParseArray(line) {
 }
 
 function ParseExpression(line) {   // Parses {ParenthesesOpen?, Either(ParseFunctionCall, ParseInfixFunctionCall, ParseIdentifier), ParenthesesClose?}
-    // TODO: implement parenthesised expressions
-    return handler.fitOnce(handler.Either(ParseFunctionCall, ParseInfixFunctionCall, ParseTypeConstructor, ComplexTerminals.ParseIdentifier), true);
+    return handler.fitOnce(
+        handler.Either(ParseFunctionCall, ParseInfixFunctionCall, ParseTypeConstructor, ComplexTerminals.ParseIdentifier),
+    true);
+}
+
+function ParseParensedExpression(line) {
+    return handler.fitOnce(handler.Either(
+        ComplexTerminals.ParseIdentifier,
+        handler.And([true], TokenChecks.ParensOpen, ParseFunctionCall, TokenChecks.ParensClose),
+        handler.And([true], TokenChecks.ParensOpen, ParseInfixFunctionCall, TokenChecks.ParensClose),
+        ParseTypeConstructor
+    ), true);
 }
 
 module.exports = { parser }

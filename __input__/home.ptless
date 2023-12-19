@@ -1,18 +1,20 @@
 a + b :: Integer => Integer => Integer = a + b
 a - b :: Integer => Integer => Integer = a - b
 
+eq(a, b) :: Integer => Integer => Boolean = eq(a - b, 0)
+
 generic(s) :: Integer => Integer = 
  | s `eq` 2 => generic(s)
  | True => generic(s)
 // huh
-BVV(a, b) :: Integer => Integer => Boolean = a-b
+BVV(a, b) :: Integer => Integer => Boolean = bf
   where bf :: Boolean = BVV(b, a)
 
 l `TST` ab :: Integer => Integer => Integer = l + b  // comment
- // where bru :: Integer = cf(af, b)
  where b :: Integer = ab + generic(l)
  where cf(w, x) :: Integer => Integer => Integer = 
   | b `eq` 2 => b
   | True => b
- where c :: Integer = generic(ab+b, l-b) // , a `cf` b, a * b, a `BVV` b)
- where af :: String = "me be string"
+ where c :: Integer = generic(ab+b, l-b) //, a `cf` b, a * b, a `BVV` b)
+ where af :: String = "ha"
+ where boo :: Float = 23.0
