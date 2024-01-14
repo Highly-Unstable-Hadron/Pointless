@@ -18,3 +18,7 @@ Oh, and it's _pointless_.
 
 ### Update: 5/12/2023
 WASM code generation completed!!  Apparently, though, it's not valid WASM.
+
+### Update: 14/01/2024
+Semantic analyzer has been completed!!  That's the wrong sequence of steps, but yay!
+Code generator plays mostly well with the semantic analyzer's output.

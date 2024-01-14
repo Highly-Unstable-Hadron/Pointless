@@ -3,8 +3,8 @@ const { JSDOM }  = require("jsdom");
 const beautify_html = require("js-beautify").html;
 const { GCD, fmtAST } = require("./helper.js")
 const { parser } = require("./parser.js");
-const { semanticAnalyzer } = require("./semantic_analysis.js");
-const { constructWasm } = require("./prelude.js");
+const { semanticAnalyzer, lookup, setStringHandler } = require("./semantic_analysis.js");
+const { constructWasm, codeGenSetGlobals } = require("./prelude.js");
 const wabt = require("wabt");
 
 const input_filepath   = process.argv[2] || "./__input__/home.ptless";
@@ -20,15 +20,18 @@ readFile(input_filepath, "utf-8", (err, fileContents) => {
     let [AST, handler] = parser(fileContents);
     console.log(fmtAST(AST))
 
-    let context = semanticAnalyzer(AST, handler);
+    setStringHandler(handler);
+    let context = semanticAnalyzer(AST);
+    // console.log(context);
 
     // writeFile(output_filepath, constructHtml(AST), 
     //     (err) => err ? console.error(`File Write Error (writing to "${output_filepath}"): ${err}`) : null
     // );
 
-    // writeFile(output_wasm_path, constructWasm(AST, context, handler),
-    //     (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
-    // );
+    codeGenSetGlobals(context, lookup, handler);
+    writeFile(output_wasm_path, constructWasm(AST),
+        (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
+    );
 
     // let WASM = parseWat(output_wasm_path).toBinary()
 })

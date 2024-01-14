@@ -6,9 +6,11 @@ let globalIdentifiers = new Set();
 let signatures = {};
 let locals = {};
 
-function semanticAnalyzer(ast, handler) {
+function setStringHandler(handler) {
     Handler.handler = handler;
+}
 
+function semanticAnalyzer(ast) {
     let generators = [];
     ast.forEach(definition => {
         let yielded_exec = functionDefinition(definition);
@@ -74,7 +76,10 @@ function* functionDefinition(ast) {
     yield true;  // function name and type have been recorded for referencing elsewhere in the code
 
     let generators = [];
+    // can't have the function name or arguments shadowed by locals
     let localIdentifiers = new Set(args.map(value => String(value)));
+    localIdentifiers.add(stringFnName);
+
     locals[stringFnName] = {};
     wheres.forEach(where_stmt => {
         let yielded = local_defs(where_stmt, stringFnName, localIdentifiers);
@@ -186,13 +191,13 @@ function verifyBody(ast, scopes) {
         let original_scopes = [...scopes];
         for (let i in scopes) {
             if (scopes[i] == String(fnName)) {
-                // Not doing this messes up `lookup()` and makes it search too deep, since `signature.function` has attribute `function` too
+                // Not doing this messes up `InternalLookup()` and makes it search too deep, since `signature.function` has attribute `function` too
                 scopes = scopes.slice(0, i);
                 break;
             }
         }
 
-        let fnSignature = lookup(fnName, scopes);
+        let fnSignature = InternalLookup(fnName, scopes);
 
         if (!fnSignature)
             return Handler.handler.throwErrorWithoutExit(Exceptions.NameError,
@@ -213,13 +218,13 @@ function verifyBody(ast, scopes) {
             if (arg.isToken) {  // TODO: implement hardcoded constants
                 let argSignature;
                 if (arg.tokenType == TokenTypes.Identifier)
-                    argSignature = lookup(arg, original_scopes);
+                    argSignature = InternalLookup(arg, original_scopes);
                 else
                     argSignature = verifyBody(arg, scopes);
 
-                if (!argSignature)
+                if (!argSignature) {
                     Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(arg, "No such identifier found!"));
-                else {
+                } else {
                     if (!argSignature.isToken && argSignature[String(arg)])
                         argSignature = argSignature[String(arg)];
 
@@ -249,7 +254,7 @@ function verifyBody(ast, scopes) {
         // TODO: fix bug
         switch (ast.tokenType) {
             case TokenTypes.Identifier:
-                return lookup(ast, scopes);
+                return InternalLookup(ast, scopes);
             case TokenTypes.Boolean:
                 return new Token("Boolean");
             case TokenTypes.Integer:
@@ -266,18 +271,32 @@ function verifyBody(ast, scopes) {
 }
 
 function lookup(identifier, scopes) {
-    let identifier_signature;
+    let identifier_signature, path, isArgument = false;
     if (scopes.length > 0) {
         if (scopes.length == 2)
-            identifier_signature = locals[scopes[0]][scopes[1]][identifier];  // Arguments of parent local function
+            identifier_signature = locals[scopes[0]][scopes[1]][identifier], 
+            path = [...scopes, identifier],
+            isArgument = identifier_signature ? true : false; // Arguments of parent local function
         if (!identifier_signature)
-            identifier_signature = locals[scopes[0]][identifier];  // A local function
+            identifier_signature = locals[scopes[0]][identifier],
+            path = [scopes[0], identifier],
+            isArgument = false;  // A local function/value
         if (!identifier_signature)
-            identifier_signature = signatures[scopes[0]][identifier];   // Arguments of parent global function
+            identifier_signature = signatures[scopes[0]][identifier],
+            path = [scopes[0], identifier],
+            isArgument = identifier_signature ? true : false;  // Arguments of parent global function
     }
     if (!identifier_signature)
-        identifier_signature = signatures[identifier];  // A global function
-    return identifier_signature;
+        identifier_signature = signatures[identifier],
+        path = [identifier],
+        isArgument = false;  // A global function/value
+
+    if (path.length == 2 && path[0] == path[1])  // the type of the function itself is given in such an entry
+        path.pop();
+
+    return [identifier_signature, path, isArgument];
 }
 
-module.exports = { semanticAnalyzer };
+const InternalLookup = (identifier, scopes) => lookup(identifier, scopes)[0];
+
+module.exports = { semanticAnalyzer, lookup, setStringHandler };

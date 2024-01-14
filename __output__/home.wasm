@@ -1,17 +1,12 @@
 (module 
-	(func $generic (param $generic::s i32) (result i32) (if call $generic::s i32.const 2 i32.eq 
-	(then call $generic::s call $generic) 
+	(func $+ (param $+::a TYPE) (param $+::b TYPE) (result TYPE) args.get $+::a args.get $+::b i32.add) 
+	(func $- (param $-::a TYPE) (param $-::b TYPE) (result TYPE) args.get $-::a args.get $-::b i32.sub) 
+	(func $eq (param $eq::a TYPE) (param $eq::b TYPE) (result TYPE) args.get $eq::a args.get $eq::b i32.sub i32.const 0 i32.eq) 
+	(func $generic (param $generic::s TYPE) (result TYPE) (if args.get $generic::s i32.const 2 i32.eq 
+	(then args.get $generic::s args.get $generic) 
 	(else (if i32.const 0xFFFFFFFF 
-	(then call $generic::s call $generic) 
+	(then args.get $generic::s args.get $generic) 
 	(else))))) 
-	(func $BVV::b (result i32) i32.const 23) 
-	(func $BVV (param $BVV::a i32) (param $BVV::b i32) (result i32) i32.const 0xFFFFFFFF) 
-	(func $TST::b (result i32) call $TST::a call $TST::l call $generic i32.add) 
-	(func $TST::cf (param $TST::cf::w i32) (param $TST::cf::x i32) (result i32) (if call $TST::b i32.const 2 i32.eq 
-	(then call $TST::b) 
-	(else (if i32.const 0xFFFFFFFF 
-	(then call $TST::b) 
-	(else))))) 
-	(func $TST::c (result i32) call $TST::a call $TST::b i32.add call $TST::l call $TST::b i32.sub call $TST::a call $TST::b call $TST::cf call $TST::a call $TST::b i32.mul call $TST::a call $TST::b call $BVV call $generic) 
-	(func $TST (param $TST::l i32) (param $TST::a i32) (result i32) call $TST::l call $TST::b i32.add) 
-(export (func $generic) (func $BVV) (func $TST))) 
+	(func $BVV (param $BVV::a TYPE) (param $BVV::b TYPE) (result TYPE) locals.get $BVV::bf) 
+	(func $TST (param $TST::l TYPE) (param $TST::ab TYPE) (result TYPE) args.get $TST::l locals.get $TST::b i32.add) 
+(export)) 

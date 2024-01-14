@@ -138,7 +138,6 @@ function ParseWhereStatement(line) {
 }
 
 function ParseNestedAssignment(line) {
-    // TODO: implement Name Errors here, assign numbers instead of tokens to identifiers in AST
     let assignment = handler.fitOnce(
         handler.Either(ParseFunctionCallWithoutExpressions, ParseInfixFunctionCallWithoutExpressions, ComplexTerminals.ParseIdentifier), true)
     .lazy_concat(
