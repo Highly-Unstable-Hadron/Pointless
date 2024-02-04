@@ -3,8 +3,11 @@ const { Token, Fit, Exceptions, TokenTypes, RuleTypes } = require("./helper.js")
 const Handler = {};
 
 let globalIdentifiers = new Set();
-let signatures = {};
-let locals = {};
+
+let definitions = {};       // References to the global fn's AST
+let signatures = {};        // Signatures of globals
+let localDefinitions = {};  // References to local fn's AST
+let localSignatures = {};   // Signatures of locals
 
 function setStringHandler(handler) {
     Handler.handler = handler;
@@ -26,8 +29,10 @@ function semanticAnalyzer(ast) {
         process.exit(1);
 
     return {
+        definitions: definitions,
         signatures: signatures,
-        locals: locals
+        localDefinitions: localDefinitions,
+        locals: localSignatures
     }
 }
 
@@ -42,16 +47,17 @@ function destructureAssignment(ast, isWhereDefn) {
         fnName = header, args=new Fit('', header.line_number);
     else
         [fnName, ...args] = header;
-    let resultType = argtypes.pop();
+    let resultType = argtypes.at(-1);   // Stupppid call-by-reference. Doing argtypes.pop() modifies original AST
+    let types = argtypes.slice(0, -1);
 
-    if (args.length != argtypes.length) {
-        let token = args.length > argtypes.length ? args[argtypes.length] : argtypes[args.length];
+    if (args.length != types.length) {
+        let token = args.length > types.length ? args[types.length] : types[args.length];
         Handler.handler.throwError(Exceptions.TypeError, Fit.tokenFailed(token, "Type signature does not match argument length"));
     }
     if (!isWhereDefn)
-        return [fnName, args, argtypes, body, wheres, resultType];
+        return [fnName, args, types, body, wheres, resultType];
     else
-        return [fnName, args, argtypes, body, resultType];
+        return [fnName, args, types, body, resultType];
 }
 
 function* functionDefinition(ast) {
@@ -59,6 +65,8 @@ function* functionDefinition(ast) {
 
     let stringFnName = String(fnName);
     signatures[stringFnName] = {};
+    definitions[stringFnName] = body;
+    localDefinitions[stringFnName] = {};
     if (globalIdentifiers.has(stringFnName))
         Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(fnName, "Identifier already used"));
     globalIdentifiers.add(stringFnName);
@@ -80,7 +88,7 @@ function* functionDefinition(ast) {
     let localIdentifiers = new Set(args.map(value => String(value)));
     localIdentifiers.add(stringFnName);
 
-    locals[stringFnName] = {};
+    localSignatures[stringFnName] = {};
     wheres.forEach(where_stmt => {
         let yielded = local_defs(where_stmt, stringFnName, localIdentifiers);
         if (yielded.next().value) 
@@ -111,20 +119,21 @@ function* local_defs(ast, parentName, localIdentifiers) {
     let [fnName, args, argtypes, body, resultType] = destructureAssignment(ast, true);
 
     let stringFnName = String(fnName);
+    localDefinitions[parentName][stringFnName] = body;
     if (localIdentifiers.has(stringFnName))
         Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(fnName, "Identifier already used"));
     localIdentifiers.add(stringFnName);
 
     let arguments = new Set();
-    locals[parentName][stringFnName] = {};
+    localSignatures[parentName][stringFnName] = {};
     args.forEach((arg, index) => {
         let stringed_arg = String(arg);
         if (arguments.has(stringed_arg) || stringed_arg == stringFnName)
             Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(arg, "Identifier already used"));
         arguments.add(stringed_arg);
-        locals[parentName][stringFnName][stringed_arg] = argtypes[index];
+        localSignatures[parentName][stringFnName][stringed_arg] = argtypes[index];
     });
-    locals[parentName][stringFnName][stringFnName] = resultType;
+    localSignatures[parentName][stringFnName][stringFnName] = resultType;
 
     yield true;  // function name and type have been recorded for referencing elsewhere in the code
 
@@ -272,13 +281,17 @@ function verifyBody(ast, scopes) {
 
 function lookup(identifier, scopes) {
     let identifier_signature, path, isArgument = false;
+    if (scopes.at(-1) == identifier) {
+        scopes = scopes.slice(0, -1);
+    }
+
     if (scopes.length > 0) {
         if (scopes.length == 2)
-            identifier_signature = locals[scopes[0]][scopes[1]][identifier], 
+            identifier_signature = localSignatures[scopes[0]][scopes[1]][identifier], 
             path = [...scopes, identifier],
             isArgument = identifier_signature ? true : false; // Arguments of parent local function
         if (!identifier_signature)
-            identifier_signature = locals[scopes[0]][identifier],
+            identifier_signature = localSignatures[scopes[0]][identifier],
             path = [scopes[0], identifier],
             isArgument = false;  // A local function/value
         if (!identifier_signature)
@@ -292,7 +305,7 @@ function lookup(identifier, scopes) {
         isArgument = false;  // A global function/value
 
     if (path.length == 2 && path[0] == path[1])  // the type of the function itself is given in such an entry
-        path.pop();
+        path.pop(), isArgument = false;
 
     return [identifier_signature, path, isArgument];
 }

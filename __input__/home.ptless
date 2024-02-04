@@ -18,3 +18,4 @@ l `TST` ab :: Integer => Integer => Integer = l + b  // comment
  where c :: Integer = generic(ab+b, l-b) //, a `cf` b, a * b, a `BVV` b)
  where af :: String = "ha"
  where boo :: Float = 23.0
+ where v :: Integer = generic(223)

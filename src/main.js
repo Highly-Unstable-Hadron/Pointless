@@ -4,13 +4,29 @@ const beautify_html = require("js-beautify").html;
 const { GCD, fmtAST } = require("./helper.js")
 const { parser } = require("./parser.js");
 const { semanticAnalyzer, lookup, setStringHandler } = require("./semantic_analysis.js");
-const { constructWasm, codeGenSetGlobals } = require("./prelude.js");
+const { constructWasm, codeGenSetGlobals } = require("./codeGenWASM.js");
 const wabt = require("wabt");
 
-const input_filepath   = process.argv[2] || "./__input__/home.ptless";
-const output_filepath  = process.argv[3] || "./__output__/home.html";
-const output_wasm_path = process.argv[4] || "./__output__/home.wasm";
-const run              = process.argv[5] || false;  // TODO: WASM executer
+// TODO: macro-isation, local-isation, lazy evaluation
+
+const devDebugOptions  = {
+    "":            (AST, context, WASM) => '',
+    undefined:     (AST, context, WASM) => '',
+    "all":  (AST, context, WASM) => `${fmtAST(AST, true)} ${context} ${fmtAST(WASM, true)}`,
+    "ast"    : (AST, context, WASM) => fmtAST(AST, true),
+    "context": (AST, context, WASM) => context,
+    "context.signs": (AST, context, WASM) => context.signatures,
+    "context.locals": (AST, context, WASM) => context.locals,
+    "context.defs": (AST, context, WASM) => context.definitions,
+    "context.localDefs": (AST, context, WASM) => context.localDefinitions,
+    "wasm": (AST, context, WASM) => fmtAST(WASM, true)
+}
+
+const devDebug         = process.argv.slice(2).map((arg) => devDebugOptions[arg] || (_ => ''));
+const input_filepath   = "./__input__/home.ptless";
+const output_filepath  = "./__output__/home.html";
+const output_wasm_path = "./__output__/home.wasm";
+const run              = false;  // TODO: WASM executer
 
 require('util').inspect.defaultOptions.depth = 50;
 
@@ -18,18 +34,20 @@ readFile(input_filepath, "utf-8", (err, fileContents) => {
     if (err)
         console.error(`File Read Error (reading "${input_filepath}"): ${err}`);
     let [AST, handler] = parser(fileContents);
-    console.log(fmtAST(AST))
 
     setStringHandler(handler);
     let context = semanticAnalyzer(AST);
-    // console.log(context);
+
+    codeGenSetGlobals(context, lookup, handler);
+    let output = constructWasm();
+
+    console.log(...devDebug.map(fn => fn(AST, context, output)));
 
     // writeFile(output_filepath, constructHtml(AST), 
     //     (err) => err ? console.error(`File Write Error (writing to "${output_filepath}"): ${err}`) : null
     // );
 
-    codeGenSetGlobals(context, lookup, handler);
-    writeFile(output_wasm_path, constructWasm(AST),
+    writeFile(output_wasm_path, fmtAST(output),
         (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
     );
 

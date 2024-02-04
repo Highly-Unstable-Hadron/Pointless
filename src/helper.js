@@ -395,30 +395,45 @@ function GCD(args) {  /** Finds the GCD of an array of numbers */
     );
 }
 
-function fmtAST(ast) {
+function fmtAST(ast, terminalPrint=false) {
     const RuleTypeStrings = ['TypeDef', 'Def', 'Guard', 'Where', 'FnCall', 'CType', 'Case', 'Array']
     output = ""
     for (line of ast) {
-        let indent1 = '', indent2 = '', nl = '';
+        let indent1 = '', nl = '';
         if (line.rule_type === RuleTypes.Assignment)
             nl = '\n'
         else if (line.rule_type === RuleTypes.Where || line.wat_indent) {
             indent1 = '\n\t';
-            indent2 = indent1 + '\t';
         } else if (line.rule_type === RuleTypes.Guard){
             indent1 = '\n\t\t';
-            indent2 = indent1 + '\t';
         } else if (line.rule_type === RuleTypes.CaseInGuard)
             indent1 = '\n\t\t\t';
         else if (line.wat_newline)
             indent1 = '\n';
-        if (line.isToken || typeof line == "string") // i.e. line is a token
-            output += line + ' '
-        else
-            if (line.rule_type && line.rule_type != RuleTypes.FnCall && line.rule_type != RuleTypes.CompoundType)
-                output += (indent1 + RuleTypeStrings[line.rule_type] + ':(' + indent2 + fmtAST(line).trim() + ') ' + nl)
-            else
-                output += indent1 + '(' + fmtAST(line).trim() + ') ';
+        if (line.isToken || typeof line == "string") { // i.e. line is a token
+            if (terminalPrint) {
+                if (line.tokenType == TokenTypes.Integer || line.tokenType == TokenTypes.Float || line.tokenType == TokenTypes.Boolean)
+                    output += '\x1b[35m' + line + '\x1b[0m ';
+                else if (line.tokenType == TokenTypes.String)
+                    output += '\x1b[32m' + line + '\x1b[0m ';
+                else if (line.tokenType == TokenTypes.Operator)
+                    output += '\x1b[31m' + line + '\x1b[0m ';
+                else
+                    output += '\x1b[36m' + line + '\x1b[0m ';
+            } else
+                output += line + ' ';
+        } else {
+            if (line.rule_type != undefined && line.rule_type != RuleTypes.FnCall && line.rule_type != RuleTypes.CompoundType)
+                output += `${indent1}\x1b[34m${RuleTypeStrings[line.rule_type]}:`
+                        + `\x1b[30m(\x1b[0m${fmtAST(line, terminalPrint).trim()}\x1b[30m)\x1b[0m ${nl}`;
+            else {
+                if (terminalPrint) {
+                    output += indent1 + '\x1b[30m(\x1b[0m' + fmtAST(line, terminalPrint).trim() + '\x1b[30m)\x1b[0m ';
+                } else {
+                    output += indent1 + '(' + fmtAST(line, terminalPrint).trim() + ') ';
+                }
+            }
+        }
     }
     return output
 }
