@@ -25,6 +25,7 @@ const devDebugOptions  = {
 const devDebug         = process.argv.slice(2).map((arg) => devDebugOptions[arg] || (_ => ''));
 const input_filepath   = "./__input__/home.ptless";
 const output_filepath  = "./__output__/home.html";
+const output_wat_path  = "./__output__/home.wat";
 const output_wasm_path = "./__output__/home.wasm";
 const run              = false;  // TODO: WASM executer
 
@@ -47,11 +48,13 @@ readFile(input_filepath, "utf-8", (err, fileContents) => {
     //     (err) => err ? console.error(`File Write Error (writing to "${output_filepath}"): ${err}`) : null
     // );
 
-    writeFile(output_wasm_path, fmtAST(output),
-        (err) => err ? console.error(`File Write Error (writing to "${output_wasm_path}"): ${err}`) : null
+    writeFile(output_wat_path, fmtAST(output),
+        (err) => err ? console.error(`File Write Error (writing to "${output_wat_path}"): ${err}`) : null
     );
 
-    // let WASM = parseWat(output_wasm_path).toBinary()
+    // let WASM = wabt()
+    //     .then(module => module.parseWat(output_wasm_path, fmtAST(output)))
+    //     .then(wat    => wat.toBinary());
 })
 
 function constructHtml(ast) {
