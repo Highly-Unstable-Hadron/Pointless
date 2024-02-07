@@ -1,4 +1,3 @@
-"use strict";
 const { Exceptions, RuleTypes, Fit, TokenTypes } = require("./helper.js");
 
 const PrimitiveTypes = new Map([
@@ -22,6 +21,11 @@ const ScopeSeparator = '::';
 
 let haveCompiled = new Map();  // stores which assignments have been compiled (boolean)
 let compiledWheres = [];
+
+function wat_indent(that, indent_by) {
+    that.wat_indent = indent_by;
+    return that;
+}
 
 const Primitives = new Map([
     ['+',  {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.add'}],
@@ -98,13 +102,12 @@ function genLiteral(path, ast_snip) {
 function genGuards(path, ast_snip) {
     if (ast_snip.length == 0)
         return [];
-    return [['if', ...genFnCall(path, ast_snip[0][0]), 
-                ['then', ...genFnCall(path, ast_snip[0][1])], 
-                ['else', ...genGuards(path, ast_snip.slice(1,))]].map((value) => {
-                    if (typeof value != 'string')
-                        value.wat_indent = true;
-                    return value;
-                })]
+    return [
+        wat_indent(['if', ...genFnCall(path, ast_snip[0][0]), 
+            wat_indent(['then', ...genFnCall(path, ast_snip[0][1])], 3), 
+            wat_indent(['else', ...genGuards(path, ast_snip.slice(1,))], 2)
+        ], 2)
+    ];
 }
 function genFnCall(path, ast_snip) {
     if (ast_snip.isToken)
@@ -139,13 +142,12 @@ function genFunctionDef(path, body) {
         }
     }
 
-    let output = [
+    let output = wat_indent([
                 'func', '$'+path.join(ScopeSeparator),
                 ...args.map((arg, index) => ['param', '$'+argPaths[index], genTypes(argTypes[index])]), 
                 ['result', genTypes(resultType)],
                 ...(body.rule_type == RuleTypes.Guard ? genGuards(path, body) : genFnCall(path, body)),  // TODO: implement constants
-            ];
-    output.wat_indent = true;
+            ], 1);
     return output;
 }
 

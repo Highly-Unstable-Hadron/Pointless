@@ -9,6 +9,8 @@ let signatures = {};        // Signatures of globals
 let localDefinitions = {};  // References to local fn's AST
 let localSignatures = {};   // Signatures of locals
 
+const ScopeSeparator = '::';
+
 function setStringHandler(handler) {
     Handler.handler = handler;
 }
@@ -196,16 +198,6 @@ function verifyBody(ast, scopes) {
         return oldSignature;
     } else if (ast.rule_type == RuleTypes.FnCall) {
         let [fnName, ...args] = ast;
-
-        let original_scopes = [...scopes];
-        for (let i in scopes) {
-            if (scopes[i] == String(fnName)) {
-                // Not doing this messes up `InternalLookup()` and makes it search too deep, since `signature.function` has attribute `function` too
-                scopes = scopes.slice(0, i);
-                break;
-            }
-        }
-
         let fnSignature = InternalLookup(fnName, scopes);
 
         if (!fnSignature)
@@ -227,7 +219,7 @@ function verifyBody(ast, scopes) {
             if (arg.isToken) {  // TODO: implement hardcoded constants
                 let argSignature;
                 if (arg.tokenType == TokenTypes.Identifier)
-                    argSignature = InternalLookup(arg, original_scopes);
+                    argSignature = InternalLookup(arg, scopes);
                 else
                     argSignature = verifyBody(arg, scopes);
 
@@ -242,7 +234,7 @@ function verifyBody(ast, scopes) {
                             Fit.tokenFailed(arg, `Expected type '${sign[index]}', instead got argument of type '${argSignature}'`))
                 }
             } else {
-                let argSignature = verifyBody(arg, original_scopes);
+                let argSignature = verifyBody(arg, scopes);
                 let nestedFn = String(arg[0]);
                 if (argSignature) {
                     if (argSignature[nestedFn])
@@ -281,8 +273,13 @@ function verifyBody(ast, scopes) {
 
 function lookup(identifier, scopes) {
     let identifier_signature, path, isArgument = false;
-    if (scopes.at(-1) == identifier) {
-        scopes = scopes.slice(0, -1);
+    for (let i in scopes) {
+        if (scopes[i] == identifier) {
+            // Since `signature.function` has attribute `function` too (storing returntype),
+            // while we want to return the type of the entire function, including that of its arguments
+            scopes = scopes.slice(0, i);
+            break;
+        }
     }
 
     if (scopes.length > 0) {

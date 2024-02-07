@@ -402,12 +402,14 @@ function fmtAST(ast, terminalPrint=false) {
         let indent1 = '', nl = '';
         if (line.rule_type === RuleTypes.Assignment)
             nl = '\n'
-        else if (line.rule_type === RuleTypes.Where || line.wat_indent) {
+        else if (line.rule_type === RuleTypes.Where) {
             indent1 = '\n\t';
         } else if (line.rule_type === RuleTypes.Guard){
             indent1 = '\n\t\t';
         } else if (line.rule_type === RuleTypes.CaseInGuard)
             indent1 = '\n\t\t\t';
+        else if (line.wat_indent)
+            indent1 = '\n' + '\t'.repeat(line.wat_indent);
         else if (line.wat_newline)
             indent1 = '\n';
         if (line.isToken || typeof line == "string") { // i.e. line is a token
