@@ -13,8 +13,8 @@ BVV(a, b) :: Integer => Integer => Boolean = bf
 l `TST` ab :: Integer => Integer => Integer = l + b  // comment
  where b :: Integer = ab + generic(l)
  where cf(w, x) :: Integer => Integer => Integer = 
-  | b `eq` 2 => b
-  | True => b
+  | b `eq` 2 => w
+  | True => x
  where c :: Integer = generic(ab+b, l-b) //, a `cf` b, a * b, a `BVV` b)
  where af :: String = "ha"
  where boo :: Float = 23.0

@@ -19,6 +19,9 @@ const devDebugOptions  = {
     "context.locals": (AST, context, WASM) => context.locals,
     "context.defs": (AST, context, WASM) => context.definitions,
     "context.localDefs": (AST, context, WASM) => context.localDefinitions,
+    "context.graph": (AST, context, WASM) => context.semanticGraph,
+    "context.graph.referenced_in": (AST, context, WASM) => context.semanticGraph.referenced_in,
+    "context.graph.referencing": (AST, context, WASM) => context.semanticGraph.referencing,
     "wasm": (AST, context, WASM) => fmtAST(WASM, true)
 }
 

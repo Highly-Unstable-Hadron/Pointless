@@ -90,9 +90,7 @@ function genLiteral(path, ast_snip) {
                 return ['call', '$'+identifier_path.join(ScopeSeparator)];
                 // TODO: implement higher order functions (i.e. check if it needs to be called)
             } else if (type) {
-                if (isArgument)
-                    return ['args.get', '$'+identifier_path.join(ScopeSeparator)];
-                return ['locals.get', '$'+identifier_path.join(ScopeSeparator)];
+                return ['local.get', '$'+identifier_path.join(ScopeSeparator)];
             }
             throw 'WEIRD OPERATOR/IDENTIFIER '+ast_snip;
         default:
@@ -100,14 +98,15 @@ function genLiteral(path, ast_snip) {
     }
 }
 function genGuards(path, ast_snip) {
-    if (ast_snip.length == 0)
-        return [];
-    return [
-        wat_indent(['if', ...genFnCall(path, ast_snip[0][0]), 
-            wat_indent(['then', ...genFnCall(path, ast_snip[0][1])], 3), 
-            wat_indent(['else', ...genGuards(path, ast_snip.slice(1,))], 2)
-        ], 2)
-    ];
+    let output = wat_indent(['if', ...genFnCall(path, ast_snip[0][0]), 
+            wat_indent(['then', ...genFnCall(path, ast_snip[0][1])], 3),
+        ], 2);
+    let remaining_conds = ast_snip.slice(1);
+    if (remaining_conds.length != 0)
+        output.push(wat_indent(
+            ['else', ...genGuards(path, remaining_conds)], 2
+        ));
+    return [output];
 }
 function genFnCall(path, ast_snip) {
     if (ast_snip.isToken)

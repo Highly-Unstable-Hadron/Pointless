@@ -8,6 +8,25 @@ let definitions = {};       // References to the global fn's AST
 let signatures = {};        // Signatures of globals
 let localDefinitions = {};  // References to local fn's AST
 let localSignatures = {};   // Signatures of locals
+const semanticGraph = {
+    referencing: {          // Semantic graph's out-edges
+        locals: {},
+        globals: {}
+    },
+    referenced_in: {        // Semantic graph's in-edges
+        local_args: {},
+        locals: {},
+        globals: {}
+    },
+    fetchFromPath: function (path) {
+        let [first, second, third] = path;
+        if (second === undefined)
+            return [this.referenced_in.globals[first], this.referencing.globals[first]];
+        else if (third === undefined)
+            return [this.referenced_in.locals[first][second], this.referencing.locals[first][second]];
+        return [this.referenced_in.local_args[first][second][third], undefined];
+    }
+}
 
 const ScopeSeparator = '::';
 
@@ -31,10 +50,11 @@ function semanticAnalyzer(ast) {
         process.exit(1);
 
     return {
-        definitions: definitions,
-        signatures: signatures,
-        localDefinitions: localDefinitions,
-        locals: localSignatures
+        definitions:        definitions,
+        signatures:         signatures,
+        localDefinitions:   localDefinitions,
+        locals:             localSignatures,
+        semanticGraph:      semanticGraph
     }
 }
 
@@ -69,6 +89,11 @@ function* functionDefinition(ast) {
     signatures[stringFnName] = {};
     definitions[stringFnName] = body;
     localDefinitions[stringFnName] = {};
+    semanticGraph.referencing.globals[stringFnName] = [];
+    semanticGraph.referenced_in.globals[stringFnName] = [];
+    semanticGraph.referencing.locals[stringFnName] = {};
+    semanticGraph.referenced_in.locals[stringFnName] = {};
+    semanticGraph.referenced_in.local_args[stringFnName] = {}; 
     if (globalIdentifiers.has(stringFnName))
         Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(fnName, "Identifier already used"));
     globalIdentifiers.add(stringFnName);
@@ -76,6 +101,8 @@ function* functionDefinition(ast) {
     let arguments = new Set();
     args.forEach((arg, index) => {
         let stringed_arg = String(arg);
+        semanticGraph.referencing.locals[stringFnName][stringed_arg] = [];
+        semanticGraph.referenced_in.locals[stringFnName][stringed_arg] = [];
         if (arguments.has(stringed_arg) || stringed_arg == stringFnName)
             Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(arg, "Identifier already used"));
         arguments.add(stringed_arg);
@@ -122,6 +149,9 @@ function* local_defs(ast, parentName, localIdentifiers) {
 
     let stringFnName = String(fnName);
     localDefinitions[parentName][stringFnName] = body;
+    semanticGraph.referencing.locals[parentName][stringFnName] = [];
+    semanticGraph.referenced_in.locals[parentName][stringFnName] = [];
+    semanticGraph.referenced_in.local_args[parentName][stringFnName] = {};
     if (localIdentifiers.has(stringFnName))
         Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(fnName, "Identifier already used"));
     localIdentifiers.add(stringFnName);
@@ -130,6 +160,7 @@ function* local_defs(ast, parentName, localIdentifiers) {
     localSignatures[parentName][stringFnName] = {};
     args.forEach((arg, index) => {
         let stringed_arg = String(arg);
+        semanticGraph.referenced_in.local_args[parentName][stringFnName][stringed_arg] = [];
         if (arguments.has(stringed_arg) || stringed_arg == stringFnName)
             Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(arg, "Identifier already used"));
         arguments.add(stringed_arg);
@@ -159,6 +190,7 @@ function* local_defs(ast, parentName, localIdentifiers) {
 }
 
 function verifyBody(ast, scopes) {
+    let [_, referencing] = semanticGraph.fetchFromPath(scopes);
     if (ast.rule_type == RuleTypes.Guard) {
         let oldSignature;
         for (let case_ of ast) {
@@ -198,7 +230,8 @@ function verifyBody(ast, scopes) {
         return oldSignature;
     } else if (ast.rule_type == RuleTypes.FnCall) {
         let [fnName, ...args] = ast;
-        let fnSignature = InternalLookup(fnName, scopes);
+        let [fnSignature, path, __] = lookup(fnName, scopes);
+        semanticGraph.fetchFromPath(path)[0].push(scopes);
 
         if (!fnSignature)
             return Handler.handler.throwErrorWithoutExit(Exceptions.NameError,
@@ -218,9 +251,12 @@ function verifyBody(ast, scopes) {
         for (let arg of args) {
             if (arg.isToken) {  // TODO: implement hardcoded constants
                 let argSignature;
-                if (arg.tokenType == TokenTypes.Identifier)
-                    argSignature = InternalLookup(arg, scopes);
-                else
+                if (arg.tokenType == TokenTypes.Identifier) {
+                    let argPath;
+                    [argSignature, argPath, _] = lookup(String(arg), scopes);
+                    referencing.push(argPath);
+                    semanticGraph.fetchFromPath(argPath)[0].push(scopes);
+                } else
                     argSignature = verifyBody(arg, scopes);
 
                 if (!argSignature) {
@@ -255,7 +291,10 @@ function verifyBody(ast, scopes) {
         // TODO: fix bug
         switch (ast.tokenType) {
             case TokenTypes.Identifier:
-                return InternalLookup(ast, scopes);
+                let [signature, path, _] = lookup(String(ast), scopes);
+                referencing.push(path);
+                semanticGraph.fetchFromPath(path)[0].push(scopes);
+                return signature;
             case TokenTypes.Boolean:
                 return new Token("Boolean");
             case TokenTypes.Integer:
@@ -281,7 +320,6 @@ function lookup(identifier, scopes) {
             break;
         }
     }
-
     if (scopes.length > 0) {
         if (scopes.length == 2)
             identifier_signature = localSignatures[scopes[0]][scopes[1]][identifier], 
@@ -306,7 +344,5 @@ function lookup(identifier, scopes) {
 
     return [identifier_signature, path, isArgument];
 }
-
-const InternalLookup = (identifier, scopes) => lookup(identifier, scopes)[0];
 
 module.exports = { semanticAnalyzer, lookup, setStringHandler };
