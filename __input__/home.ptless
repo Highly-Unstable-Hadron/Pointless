@@ -1,7 +1,5 @@
-a + b :: Integer => Integer => Integer = a + b
-a - b :: Integer => Integer => Integer = a - b
-
-eq(a, b) :: Integer => Integer => Boolean = eq(a - b, 0)
+a + b :: Integer => Integer => Integer = 23  // overriding primitives is fine,
+// but you can't reference the original anywhere now, not even within the overriding function
 
 generic(s) :: Integer => Integer = 
  | s `eq` 2 => generic(s)

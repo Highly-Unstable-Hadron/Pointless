@@ -22,7 +22,7 @@ const Primitives = new Map([
     ['/',  {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.div'}],
     ['**', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.exp'}],
     ['//', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.idiv'}],
-    ['eq', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.eq'}]
+    ['eq', {argTypes: ['Integer', 'Integer'], type: 'Boolean', wasmPrimitive: 'i32.eq'}]
 ]);
 
 module.exports = { PrimitiveTypes, PrimitiveComposites, PrimitiveEnums, Primitives }

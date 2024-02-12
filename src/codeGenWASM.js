@@ -36,11 +36,7 @@ function genLiteral(path, ast_snip) {
             return ['i32.const', PrimitiveEnums.Boolean[ast_snip]]
         case TokenTypes.Operator:
         case TokenTypes.Identifier:
-            // TODO: move checking for primitives to end (lowest precedence) and implement primitives in semantic analyzer
             let string_ast_snip = String(ast_snip);
-            let primitive = Primitives.get(string_ast_snip);
-            if (primitive)
-                return [primitive.wasmPrimitive];
 
             let [type, identifier_path, isArgument] = globals.lookup(string_ast_snip, path); // TODO: higher order functions
             if (!haveCompiled.has(identifier_path.join(ScopeSeparator))) {
@@ -48,12 +44,10 @@ function genLiteral(path, ast_snip) {
                     compiledWheres.push(
                         genFunctionDef(identifier_path, globals.context.localDefinitions[identifier_path[0]][identifier_path[1]])
                     );
-                else if (identifier_path.length == 1)
+                else if (identifier_path.length == 1 && globals.context.definitions[identifier_path[0]]) // don't compile a primitive
                     compiledWheres.push(
                         genFunctionDef(identifier_path, globals.context.definitions[identifier_path[0]])
                     );
-                else
-                    throw `PATH TO IDENTIFIER IS LONGER THAN 2: ${ast_snip}`;
                 haveCompiled.set(identifier_path.join(ScopeSeparator), true);
             }
 
@@ -68,6 +62,8 @@ function genLiteral(path, ast_snip) {
                 // TODO: implement higher order functions (i.e. check if it needs to be called)
             } else if (type) {
                 return ['local.get', '$'+identifier_path.join(ScopeSeparator)];
+            } else if (Primitives.has(string_ast_snip)) {
+                return [Primitives.get(string_ast_snip).wasmPrimitive];
             }
             throw 'WEIRD OPERATOR/IDENTIFIER '+ast_snip;
         default:

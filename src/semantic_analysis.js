@@ -34,6 +34,16 @@ function setStringHandler(handler) {
 }
 
 function semanticAnalyzer(ast) {
+    for (let [fnName, value] of Primitives.entries()) {
+        signatures[fnName] = {};
+        let i = 0;
+        for (let argtype of value.argTypes)
+            signatures[fnName][String.fromCodePoint('a'.codePointAt(0) + i++)] = argtype;
+        signatures[fnName][fnName] = value.type;
+        semanticGraph.referencing.globals[fnName] = [];
+        semanticGraph.referenced_in.globals[fnName] = [];
+    }
+
     let generators = [];
     ast.forEach(definition => {
         let yielded_exec = functionDefinition(definition);
