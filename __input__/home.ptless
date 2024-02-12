@@ -6,16 +6,16 @@ eq(a, b) :: Integer => Integer => Boolean = eq(a - b, 0)
 generic(s) :: Integer => Integer = 
  | s `eq` 2 => generic(s)
  | True => generic(s)
-// huh
+
 BVV(a, b) :: Integer => Integer => Boolean = bf
   where bf :: Boolean = BVV(b, a)
 
-l `TST` ab :: Integer => Integer => Integer = l + b  // comment
+l `TST` ab :: Integer => Integer => Integer = cf(1, 2)  // comment
  where b :: Integer = ab + generic(l)
  where cf(w, x) :: Integer => Integer => Integer = 
   | b `eq` 2 => w
   | True => x
- where c :: Integer = generic(ab+b, l-b) //, a `cf` b, a * b, a `BVV` b)
- where af :: String = "ha"
+ where c :: Integer = generic(ab+b, l-b)
+ // where af :: String = "ha"
  where boo :: Float = 23.0
  where v :: Integer = generic(223)

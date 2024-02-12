@@ -1,4 +1,5 @@
 const { Token, Fit, Exceptions, TokenTypes, RuleTypes } = require("./helper.js");
+const { PrimitiveTypes, PrimitiveComposites, PrimitiveEnums, Primitives } = require("./preludeWASM.js");
 
 const Handler = {};
 
@@ -28,8 +29,6 @@ const semanticGraph = {
     }
 }
 
-const ScopeSeparator = '::';
-
 function setStringHandler(handler) {
     Handler.handler = handler;
 }
@@ -49,6 +48,8 @@ function semanticAnalyzer(ast) {
     if (Handler.handler.errorOccurred)
         process.exit(1);
 
+    // findRecursiveFunctions(findSinkSCC());
+    // TODO: post-processing
     return {
         definitions:        definitions,
         signatures:         signatures,
@@ -56,6 +57,48 @@ function semanticAnalyzer(ast) {
         locals:             localSignatures,
         semanticGraph:      semanticGraph
     }
+}
+
+let SCCs = [];
+
+function findRecursiveFunctions(path_to_node) {
+    // Using Kosaraju's algorithm on semanticGraph to find Strongly Connected Components (i.e. recursive functions)
+    // This produces a DAG of SCCs, where each node is a single function in the code generator's output (only in an ideal world ofc)
+    // This allows us to treat functions which don't reference themselves as macros, and ones which do as loops (hopefully)
+    let [references, SCC] = semanticGraph.fetchFromPath(path_to_node);
+    SCCs.push(SCC);
+    let node;
+    for (node of references) {
+        let index = semanticGraph.fetchFromPath(node)[1].findIndex(path => path == path_to_node);
+        // TODO: remove `index`th entry in semanticGraph
+        // TODO: repeat for all other elements in SCC
+    }
+    findRecursiveFunctions(node);
+}
+
+function findSinkSCC() {  // TODO: fix bug where findSinkSCC returns undefined
+    let node;
+    let visited = new Set();
+
+    for (node in semanticGraph.referenced_in.globals)  // fetch a random node
+        break;
+
+    node = [node];
+    let adjacent_nodes;
+    
+    do {
+        visited.add(node);
+        adjacent_nodes = semanticGraph.fetchFromPath(node)[0];
+        if (!adjacent_nodes)
+            break;
+
+        let i = 0;
+        do {
+            node = adjacent_nodes[i++];
+        } while (visited.has(node) && i <= adjacent_nodes.length);
+
+    } while (adjacent_nodes.length && !visited.has(node));
+    return node;
 }
 
 function destructureAssignment(ast, isWhereDefn) {
@@ -69,6 +112,18 @@ function destructureAssignment(ast, isWhereDefn) {
         fnName = header, args=new Fit('', header.line_number);
     else
         [fnName, ...args] = header;
+
+    argtypes.map(type => {
+        if (!PrimitiveTypes.has(String(type))) {
+            let fit;
+            if (type.isToken)
+                fit = Fit.tokenFailed(type, `No such type '${type}'`);
+            else  // TODO: implement errors for composite types
+                fit = type.fitFailed('', [type[0].range[0], type.at(-1).range[1]], `No such type '${type}'`, true);
+            Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, fit);
+        }
+    });
+
     let resultType = argtypes.at(-1);   // Stupppid call-by-reference. Doing argtypes.pop() modifies original AST
     let types = argtypes.slice(0, -1);
 
@@ -133,10 +188,15 @@ function* functionDefinition(ast) {
             let fit;
             if (body.isToken)
                 fit = Fit.tokenFailed(body, `'${stringFnName}' is supposed to return '${String(resultType)}' but instead returns '${bodySignature}'`);
-            else 
-                fit = body.fitFailed('', [Math.min(body[0].range[0], body[1].range[0]),  // Function and first arg are swapped in infix functions
-                                        body.pop().range[1]], 
-                                    `'${stringFnName}' is supposed to return '${String(resultType)}' but instead returns '${bodySignature}'`, true);
+            else {
+                let startRange = Math.min(body[0].range[0], body[1].range[0]);  // Function and first arg are swapped in infix functions
+                let lastToken = body.at(-1);
+                while (!lastToken.isToken)
+                    lastToken = lastToken.at(-1);
+                fit = body.fitFailed('', [startRange, lastToken.range[1]], 
+                                     `'${stringFnName}' is supposed to return '${String(resultType)}' but instead returns '${bodySignature}'`, 
+                                     true);
+            }
             Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, fit);
         }
     }
@@ -178,10 +238,15 @@ function* local_defs(ast, parentName, localIdentifiers) {
             let fit;
             if (body.isToken)
                 fit = Fit.tokenFailed(body, `'${stringFnName}' is supposed to return '${String(resultType)}' but instead returns '${bodySignature}'`);
-            else 
-                fit = body.fitFailed('', [Math.min(body[0].range[0], body[1].range[0]),  // Function and first arg are swapped in infix functions
-                                        body.pop().range[1]], 
-                                    `'${stringFnName}' is supposed to return '${String(resultType)}' but instead returns '${bodySignature}'`, true);
+            else {
+                let startRange = Math.min(body[0].range[0], body[1].range[0]);  // Function and first arg are swapped in infix functions
+                let lastToken = body.at(-1);
+                while (!lastToken.isToken)
+                    lastToken = lastToken.at(-1);
+                fit = body.fitFailed('', [startRange, lastToken.range[1]], 
+                                        `'${stringFnName}' is supposed to return '${String(resultType)}' but instead returns '${bodySignature}'`, 
+                                        true);
+            }
             Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, fit);
         }
     }
@@ -203,10 +268,14 @@ function verifyBody(ast, scopes) {
                 let fit;
                 if (cond.isToken)
                     fit = Fit.tokenFailed(cond, `Condition is supposed to return type 'Boolean', instead returns '${condSignature}'`);
-                else 
-                    fit = cond.fitFailed('', [Math.min(cond[0].range[0], cond[1].range[0]),  // Function and first arg are swapped in infix functions
-                                            cond.pop().range[1]], 
+                else {
+                    let startRange = Math.min(cond[0].range[0], cond[1].range[0]);  // Function and first arg are swapped in infix functions
+                    let lastToken = cond.at(-1);
+                    while (!lastToken.isToken)
+                        lastToken = lastToken.at(-1);
+                    fit = cond.fitFailed('', [startRange, lastToken.range[1]], 
                                         `Condition is supposed to return type 'Boolean', instead returns '${condSignature}'`, true);
+                }
                 Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, fit);
             }
 
@@ -218,11 +287,14 @@ function verifyBody(ast, scopes) {
 
                 if (body.isToken)
                     fit = Fit.tokenFailed(body, `Expected all arms to have the same signature, found ${bodySignature}`);
-                else 
-                    fit = body.fitFailed('', [Math.min(body[0].range[0], body[1].range[0]),  // Function and first arg are swapped in infix functions
-                                            body.pop().range[1]], 
+                else {
+                    let startRange = Math.min(body[0].range[0], body[1].range[0]);  // Function and first arg are swapped in infix functions
+                    let lastToken = body.at(-1);
+                    while (!lastToken.isToken)
+                        lastToken = lastToken.at(-1);
+                    fit = body.fitFailed('', [startRange, lastToken.range[1]], 
                                         `Expected all arms to have the same signature, found ${bodySignature}`, true);
-
+                }
                 Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, fit);
             }
             oldSignature = bodySignature;
@@ -277,9 +349,12 @@ function verifyBody(ast, scopes) {
                         argSignature = argSignature[nestedFn];
 
                     if (String(argSignature) != String(sign[index])) {
+                        let startRange = Math.min(arg[0].range[0], arg[1].range[0]);  // Function and first arg are swapped in infix functions
+                        let lastToken = arg.at(-1);
+                        while (!lastToken.isToken)
+                            lastToken = lastToken.at(-1);
                         Handler.handler.throwErrorWithoutExit(Exceptions.TypeError, 
-                            arg.fitFailed('', [Math.min(arg[0].range[0], arg[1].range[0]), // Function and first arg are swapped in infix functions
-                                               arg.pop().range[1]],
+                            arg.fitFailed('', [startRange, lastToken.range[1]],
                                 `Expected type '${sign[index]}', instead got argument of type '${argSignature}'`, true));
                         }
                 }

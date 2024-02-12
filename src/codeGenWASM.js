@@ -1,19 +1,5 @@
-const { Exceptions, RuleTypes, Fit, TokenTypes } = require("./helper.js");
-
-const PrimitiveTypes = new Map([
-    ['Integer', 'i32'],   // two's complement
-    ['Float',   'f64'],
-    ['Boolean', 'i32'],
-])
-
-const PrimitiveFunctors = new Map([
-    ['List',    []]
-])
-
-const Boolean = {
-    'True':  '0xFFFFFFFF',
-    'False': '0x00000000'
-}
+const { RuleTypes, TokenTypes } = require("./helper.js");
+const { PrimitiveTypes, PrimitiveComposites, PrimitiveEnums, Primitives } = require("./preludeWASM.js");
 
 const globals = {};  // stores StringHandler object and context (semantic analyzer's output)
 let exportables = [];  // functions to be exported to JS
@@ -27,28 +13,13 @@ function wat_indent(that, indent_by) {
     return that;
 }
 
-const Primitives = new Map([
-    ['+',  {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.add'}],
-    ['-',  {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.sub'}],
-    ['*',  {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.mul'}],
-    ['/',  {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.div'}],
-    ['**', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.exp'}],
-    ['//', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.idiv'}],
-    ['eq', {argTypes: ['Integer', 'Integer'], type: 'Integer', wasmPrimitive: 'i32.eq'}]
-]);
-
 function genTypes(ast_snip) {
     if (typeof ast_snip == "string" || ast_snip.isToken) {
-        if (PrimitiveTypes.has(String(ast_snip)))
-            return PrimitiveTypes.get(String(ast_snip));
-        else
-            globals.handler.throwError(Exceptions.TypeError,  // TODO: move prelude to semantic analyzer
-                Fit.tokenFailed(ast_snip, `No such type '${ast_snip}'`)
-            );
+        return PrimitiveTypes.get(String(ast_snip));
     } else {
         let [compositeType, ...subTypes] = ast_snip;
-        if (PrimitiveFunctors.has(compositeType)) {
-            // TODO: implement composite types
+        if (PrimitiveComposites.has(compositeType)) {
+            // TODO: implement composite types in semantic analyzer
         }
         throw "COMPOSITE TYPES NOT IMPLEMENTED" + compositeType;
     }
@@ -62,7 +33,7 @@ function genLiteral(path, ast_snip) {
         case TokenTypes.String:
             throw 'STRINGS NOT IMPLEMENTED' // TODO: implement
         case TokenTypes.Boolean:
-            return ['i32.const', Boolean[ast_snip]]
+            return ['i32.const', PrimitiveEnums.Boolean[ast_snip]]
         case TokenTypes.Operator:
         case TokenTypes.Identifier:
             // TODO: move checking for primitives to end (lowest precedence) and implement primitives in semantic analyzer
@@ -87,7 +58,13 @@ function genLiteral(path, ast_snip) {
             }
 
             if (type[string_ast_snip]) {
-                return ['call', '$'+identifier_path.join(ScopeSeparator)];
+                let parentsArgs = [];  // give local functions access to their parent's args by passing it as args to them
+                if (identifier_path.length == 2 && !type.isToken && typeof type != 'string')  // i.e. it is a local fn, not an arg to a global fn
+                    parentsArgs = Object.keys(globals.lookup(path[0], [])[0])
+                                        .filter(arg => arg != path[0])
+                                        .map(arg => ['local.get', '$' + path[0] + ScopeSeparator + arg])
+                                        .flat();            
+                return [...parentsArgs, 'call', '$'+identifier_path.join(ScopeSeparator)];
                 // TODO: implement higher order functions (i.e. check if it needs to be called)
             } else if (type) {
                 return ['local.get', '$'+identifier_path.join(ScopeSeparator)];
@@ -138,6 +115,17 @@ function genFunctionDef(path, body) {
             argTypes.push(argumentDict[arg]);
 
             haveCompiled.set(argPaths.at(-1), true);
+        }
+    }
+    if (path.length == 2) {  // Local functions need to have access to their parent's arguments
+        let parentName = path[0];
+        let parentFnType = globals.lookup(parentName, [])[0];
+        for (let arg in parentFnType) {
+            if (String(arg) != parentName) {
+                argPaths.push(parentName + ScopeSeparator + arg);
+                args.push(arg);
+                argTypes.push(parentFnType[arg]);
+            }
         }
     }
 
