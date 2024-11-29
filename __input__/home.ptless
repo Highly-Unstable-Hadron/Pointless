@@ -17,3 +17,11 @@ l `TST` ab :: Integer => Integer => Integer = cf(1, 2)  // comment
  // where af :: String = "ha"
  where boo :: Float = 23.0
  where v :: Integer = generic(223)
+
+main {
+ cr :: Boolean = True;
+ a + b;
+ BVV(1, 2);
+ a `TST` b;
+}    
+

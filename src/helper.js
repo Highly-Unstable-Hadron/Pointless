@@ -26,7 +26,8 @@ const TokenTypes = {
     Integer:        21,
     Float:          22,
     String:         23,
-    Boolean:        24
+    Boolean:        24,
+    KeywordMain:    25
 }
 
 const RuleTypes = {
@@ -37,7 +38,9 @@ const RuleTypes = {
     FnCall:         4,
     CompoundType:   5,
     CaseInGuard:    6,
-    Array:          7
+    Array:          7,
+    MainBlock:      8,
+    Statement:      9
 }
 
 const FrontendRuleTypes = {
@@ -57,6 +60,11 @@ class Token extends String {
         this.line_number = ln
         this.range=range;
     }
+}
+
+var UNMOD_LINES = [];
+function __init_handler__(lines) {
+    UNMOD_LINES = lines;
 }
 
 class Fit extends Array {
@@ -177,14 +185,15 @@ class StringHandler {
     nextFail = false;
     LINE_COMMENT_REGEXP = /\/\/.*/g
     construct(string) {
-        this.unmodified_lines = string.split('\r\n')
+    	string = string.replace('\r', '')
+        this.unmodified_lines = string.split('\n')
         this.lines = string.replaceAll(this.LINE_COMMENT_REGEXP, ' ')   // Remove comments
-                            .split('\r\n')
+                            .split('\n')
                             .map((value) => value.trimEnd())
         this.current_line_remnant = this.lines[0];
     }
     static throwError(error, fit) {  // TODO: only for Fit.lazy_concat, REMOVE
-        let e = new error(fit.message, fit.line_number, fit.line, fit.range, fit.expected);
+	let e = new error(fit.message, fit.line_number, UNMOD_LINES[fit.line_number-1], fit.range, fit.expected);
         // throw e;  // Uncomment this line for error trace during debugging
         console.error(e.toString());
         process.exit(1);
@@ -196,7 +205,7 @@ class StringHandler {
         process.exit(1);
     }
     throwErrorWithoutExit(error, fit) {
-        let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], fit.range, fit.expected);
+	let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], fit.range, fit.expected);
         this.errorOccurred = true;
         console.error(e.toString());
     }
@@ -396,7 +405,7 @@ function GCD(args) {  /** Finds the GCD of an array of numbers */
 }
 
 function fmtAST(ast, terminalPrint=false) {
-    const RuleTypeStrings = ['TypeDef', 'Def', 'Guard', 'Where', 'FnCall', 'CType', 'Case', 'Array']
+    const RuleTypeStrings = ['TypeDef', 'Def', 'Guard', 'Where', 'FnCall', 'CType', 'Case', 'Array', 'Main', 'Stmt']
     output = ""
     for (line of ast) {
         let indent1 = '', nl = '';
@@ -427,10 +436,10 @@ function fmtAST(ast, terminalPrint=false) {
         } else {
             if (line.rule_type != undefined && line.rule_type != RuleTypes.FnCall && line.rule_type != RuleTypes.CompoundType)
                 output += `${indent1}\x1b[34m${RuleTypeStrings[line.rule_type]}:`
-                        + `\x1b[30m(\x1b[0m${fmtAST(line, terminalPrint).trim()}\x1b[30m)\x1b[0m ${nl}`;
+                        + `\x1b[33m(\x1b[0m${fmtAST(line, terminalPrint).trim()}\x1b[33m)\x1b[0m ${nl}`;
             else {
                 if (terminalPrint) {
-                    output += indent1 + '\x1b[30m(\x1b[0m' + fmtAST(line, terminalPrint).trim() + '\x1b[30m)\x1b[0m ';
+                    output += indent1 + '\x1b[33m(\x1b[0m' + fmtAST(line, terminalPrint).trim() + '\x1b[33m)\x1b[0m ';
                 } else {
                     output += indent1 + '(' + fmtAST(line, terminalPrint).trim() + ') ';
                 }
@@ -440,4 +449,4 @@ function fmtAST(ast, terminalPrint=false) {
     return output
 }
 
-module.exports = { Token, Fit, StringHandler, Symbol, Exceptions, TokenTypes, RuleTypes, FrontendRuleTypes, GCD, fmtAST }
+module.exports = { Token, Fit, StringHandler, Symbol, Exceptions, TokenTypes, RuleTypes, FrontendRuleTypes, GCD, fmtAST, __init_handler__ }

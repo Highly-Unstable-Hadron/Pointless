@@ -1,18 +1,19 @@
-const { Fit, StringHandler, Exceptions, TokenTypes, RuleTypes, FrontendRuleTypes } = require("./helper.js");
+const { Fit, StringHandler, Exceptions, TokenTypes, RuleTypes, FrontendRuleTypes, __init_handler__ } = require("./helper.js");
 
 const handler = new StringHandler();
 
 const Tokens = {
     ParensOpen: "(", ParensClose: ")", Percentage: '%', Comma: ",", CssSelectorIdDemarcator: '#', Newline: '\n',  Overlay: "||", Height: "^", Width: "_",
     // ~~~~~
-    Arrow: '=>', InfixCallMarker: '`', WhiteSpace: ' ', TypeDeclaration: '::', Assignment: '=', SquareBracesOpen: '[', SquareBracesClose: ']', Guard: '|'
+    Arrow: '=>', InfixCallMarker: '`', WhiteSpace: ' ', TypeDeclaration: '::', Assignment: '=', SquareBracesOpen: '[', SquareBracesClose: ']', Guard: '|',
+    CodeBlockOpen: "\{", CodeBlockClose: "\}", SemiColon: ";"
 };
 const TokenChecks = {...Tokens};
 for (tokenname in Tokens)
     TokenChecks[tokenname] = handler.Literal(Tokens[tokenname]);
     // eval(`TokenChecks[${tokenname}] = handler.Literal(Tokens[tokenname])`)  // For readable error trace during debugging
 
-const REGEX_ESCAPED_RESERVED_SYMBOLS = ['\\(', '\\)', '\\,', '`', '=', '\\|', ':', '\\[', '\\]', '\\{', '\\}', '_']   // reserved symbols/operators
+const REGEX_ESCAPED_RESERVED_SYMBOLS = ['\\(', '\\)', '\\,', '`', '=', '\\|', ':', '\\[', '\\]', '\\{', '\\}', '_', ';']   // reserved symbols/operators
 const ComplexTerminals = {
     ParseHtmlTag:       handler.CompositeTerminals("HTML tag", /[a-zA-Z\-]+/, TokenTypes.Selector.TagName, 
                                                     "Expected HTML tag-name to contain only alphabets and '-'!"),
@@ -21,7 +22,7 @@ const ComplexTerminals = {
     ParseNumerical:     handler.CompositeTerminals("NUMBER", /\d+.?\d*\%/, TokenTypes.NumericalValue,   // TODO: Include other measures, not just percentage (?)
                                                      "Expected a numerical percentage!"),
     // ~~~~~~~~~~~~~~~~~~~
-    ParseIdentifier:    handler.CompositeTerminals("identifier", /[a-zA-Z]+/, TokenTypes.Identifier, 
+    ParseIdentifier:    handler.CompositeTerminals("identifier", /(?!where|main)[a-zA-Z]+/, TokenTypes.Identifier, 
                                                          "Expected identifier to contain letters!"),
     ParseOperator:      handler.CompositeTerminals("operator", `[^\\w\\s${REGEX_ESCAPED_RESERVED_SYMBOLS.join('')}]+`, TokenTypes.Operator, 
                                                          "Expected an operator (containing symbols)!"),
@@ -29,12 +30,14 @@ const ComplexTerminals = {
     ParseFloat:         handler.CompositeTerminals("number with a fractional part", /-?\d+\.\d+/, TokenTypes.Float),
     ParseString:        handler.CompositeTerminals("string", /\".*\"/, TokenTypes.String),
     ParseKeywordWhere:  handler.Literal('where', null),    // don't capture
+    ParseKeywordMain:   handler.Literal('main', null),
     ParseBoolean:       handler.CompositeTerminals("boolean", /True|False/, TokenTypes.Boolean),
     ParseWord:          handler.CompositeTerminals(null, /\S*/, 0)  // exists only for use in parser(), to find range for exception
 }
 
 function parser(string) {
     handler.construct(string);
+    __init_handler__(handler.unmodified_lines);
     let tokenised = tokenised_copy = handler.fitOnce(ParseLanguage, true)
     // handler.fitOnce(ParseFrontend, true).lazy_concat(
     //     handler.fitOnce.bind(handler, ParseLanguage, true)
@@ -42,15 +45,16 @@ function parser(string) {
 
     // Throwing error if anything remains on the string stream, unparsed
     // TODO: fix and finish
-    let old = '';
+    /* let old = '';
     while (!tokenised_copy.isToken) {
         old = tokenised_copy.remaining_line;
         tokenised_copy = tokenised_copy.at(-1);
     }
     if (old.trim().length > 0) {
+	console.log(old)
         let token = ComplexTerminals.ParseWord(old);
         handler.throwError(Exceptions.SyntaxError, Fit.tokenFailed(token, `Unexpected token '${token}'`));
-    }
+    } */
 
     return [tokenised, handler];
 }
@@ -117,7 +121,45 @@ function ParseWidth(line) {
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 function ParseLanguage(line) {
-    return handler.fitAsManyAsPossible(ParseAssignment);
+    return handler.fitOnce(handler.And(
+		handler.fitAsManyAsPossible.bind(handler, ParseAssignment),
+		handler.fitMaybeOnce.bind(handler, ParseMainBlock)
+	));
+}
+
+function ParseMainBlock(line) {
+    return handler.encapsulateRule(RuleTypes.MainBlock,
+        handler.fitOnce(ComplexTerminals.ParseKeywordMain, true)
+	.lazy_concat(
+	    handler.fitOnce.bind(handler, TokenChecks.CodeBlockOpen, false),
+	    handler.fitAsManyAsPossible.bind(handler, ParseStmtAndAssignment),
+	    handler.fitOnce.bind(handler, TokenChecks.CodeBlockClose, false)
+	)
+    );
+}
+
+function ParseStmtAndAssignment(line) {
+    let fit = handler.fitOnce(handler.Either(ParseConstAssignment, 
+	ParseStmt), true);
+    return fit;
+}
+
+function ParseStmt(line) {
+    return handler.encapsulateRule(RuleTypes.Statement,
+	handler.fitOnce(ParseExpression, true).lazy_concat(
+	   handler.fitOnce.bind(handler, TokenChecks.SemiColon, false)
+        )
+    );
+}
+
+function ParseConstAssignment(line) {
+    return handler.encapsulateRule(RuleTypes.Assignment,
+        handler.fitOnce(handler.And([true, true],
+            ComplexTerminals.ParseIdentifier,
+            ParseTypeDeclaration,
+            TokenChecks.Assignment,
+            ParseExpression, TokenChecks.SemiColon), true),
+    );
 }
 
 function ParseAssignment(line) {
