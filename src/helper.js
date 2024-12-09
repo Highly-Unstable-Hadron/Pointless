@@ -63,8 +63,10 @@ class Token extends String {
 }
 
 var UNMOD_LINES = [];
-function __init_handler__(lines) {
+var FILENAME = null;
+function __init_handler__(lines, filename) {
     UNMOD_LINES = lines;
+    FILENAME = filename;
 }
 
 class Fit extends Array {
@@ -144,7 +146,9 @@ class PointlessException extends Error {   // Extends Error to allow for error t
     cursor_position=0;
     expected=null;
     message='';
-    constructor(message, line_number, concerned_line, cursor_range, expected)
+    isWarning=false;
+    filename=null;
+    constructor(message, line_number, concerned_line, filename, cursor_range, expected)
     {
         super(message);
         this.message = message;
@@ -153,13 +157,18 @@ class PointlessException extends Error {   // Extends Error to allow for error t
         this.cursor_range = cursor_range;
         this.concerned_line = concerned_line
         this.expected = expected;
-        this.erroneous_pos_=`${" ".repeat(this.cursor_range[0])}${"^".repeat(cursor_range[1] - cursor_range[0])}`;
+        this.filename = filename;
+	    if (cursor_range.length == 0)
+	        this.erroneous_pos_ = '';
+	    else
+            this.erroneous_pos_=`${" ".repeat(this.cursor_range[0])}${"^".repeat(cursor_range[1] - cursor_range[0])}`;
     }
     toString () {  /** Returns formatted string to print during errors */
         let rule_parse_suffix = '';
         if (this.parsing_rule)
             rule_parse_suffix = ` while parsing rule '${this.parsing_rule}'`;
-        return `\x1b[31mError at line number \x1b[34m${this.line_number}${rule_parse_suffix}\x1b[0m\n`+ 
+        return `In file \x1b[34m'${this.filename}'\x1b[0m at line number \x1b[34m${this.line_number}\x1b[0m, ` +
+               `${this.isWarning ? '\x1b[0m\x1b[33mWarning' : '\x1b[31mError'} ${rule_parse_suffix}\x1b[0m\n`+
                `\x1b[34m>>>\x1b[0m ${this.concerned_line}\n` +
                `\x1b[34m... ${this.erroneous_pos_}\x1b[0m\n` +
                `\x1b[4m\x1b[35m${this.name}\x1b[0m: \x1b[90m${this.message}\x1b[0m\n`;
@@ -184,7 +193,9 @@ class StringHandler {
     noNewlines = false;
     nextFail = false;
     LINE_COMMENT_REGEXP = /\/\/.*/g
-    construct(string) {
+    filename = ""
+    construct(string, filename) {
+        this.filename = filename;
     	string = string.replace('\r', '')
         this.unmodified_lines = string.split('\n')
         this.lines = string.replaceAll(this.LINE_COMMENT_REGEXP, ' ')   // Remove comments
@@ -193,22 +204,30 @@ class StringHandler {
         this.current_line_remnant = this.lines[0];
     }
     static throwError(error, fit) {  // TODO: only for Fit.lazy_concat, REMOVE
-	let e = new error(fit.message, fit.line_number, UNMOD_LINES[fit.line_number-1], fit.range, fit.expected);
+		let e = new error(fit.message, fit.line_number, UNMOD_LINES[fit.line_number-1], FILENAME, fit.range, fit.expected);
         // throw e;  // Uncomment this line for error trace during debugging
         console.error(e.toString());
         process.exit(1);
     }
     throwError(error, fit) {
-        let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], fit.range, fit.expected);
+        let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], this.filename, 
+            fit.range, fit.expected);
         // throw e;  // Uncomment this line for error trace during debugging
         console.error(e.toString());
         process.exit(1);
     }
     throwErrorWithoutExit(error, fit) {
-	let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], fit.range, fit.expected);
+		let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], this.filename,
+		    fit.range, fit.expected);
         this.errorOccurred = true;
         console.error(e.toString());
     }
+	warn(error, fit) {
+		let e = new error(fit.message, fit.line_number, this.unmodified_lines[fit.line_number-1], this.filename, 
+		    fit.range, fit.expected);
+		e.isWarning = true;
+		console.error(e.toString());
+	}
     CompositeTerminals(expected, expression, token_type=null, msg=null) {
         // TODO: something better than regexp?
         return function ComposedCompositeTerminal(input_string) {

@@ -35,9 +35,9 @@ const ComplexTerminals = {
     ParseWord:          handler.CompositeTerminals(null, /\S*/, 0)  // exists only for use in parser(), to find range for exception
 }
 
-function parser(string) {
-    handler.construct(string);
-    __init_handler__(handler.unmodified_lines);
+function parser(string, filename) {
+    handler.construct(string, filename);
+    __init_handler__(handler.unmodified_lines, filename);
     let tokenised = tokenised_copy = handler.fitOnce(ParseLanguage, true)
     // handler.fitOnce(ParseFrontend, true).lazy_concat(
     //     handler.fitOnce.bind(handler, ParseLanguage, true)
@@ -140,15 +140,13 @@ function ParseMainBlock(line) {
 
 function ParseStmtAndAssignment(line) {
     let fit = handler.fitOnce(handler.Either(ParseConstAssignment, 
-	ParseStmt), true);
+    	ParseStmt), true);
     return fit;
 }
 
 function ParseStmt(line) {
-    return handler.encapsulateRule(RuleTypes.Statement,
-	handler.fitOnce(ParseExpression, true).lazy_concat(
+    return handler.fitOnce(ParseExpression, true).lazy_concat(
 	   handler.fitOnce.bind(handler, TokenChecks.SemiColon, false)
-        )
     );
 }
 

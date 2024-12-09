@@ -1,16 +1,19 @@
- [ 3 4 m D e f :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 1 m +  [ 0 m    [ 3 6 m a  [ 0 m    [ 3 6 m b  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m I n t e g e r  [ 0 m    [ 3 6 m I n t e g e r  [ 0 m    [ 3 6 m I n t e g e r  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 5 m 2 3  [ 0 m  [ 3 3 m )  [ 0 m   
-  [ 3 4 m D e f :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 6 m g e n e r i c  [ 0 m    [ 3 6 m s  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m I n t e g e r  [ 0 m    [ 3 6 m I n t e g e r  [ 0 m  [ 3 3 m )  [ 0 m   
- 	 	  [ 3 4 m G u a r d :  [ 3 3 m (  [ 0 m  [ 3 4 m C a s e :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 6 m e q  [ 0 m    [ 3 6 m s  [ 0 m    [ 3 5 m 2  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 6 m g e n e r i c  [ 0 m    [ 3 6 m s  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m   
- 	 	 	  [ 3 4 m C a s e :  [ 3 3 m (  [ 0 m  [ 3 5 m T r u e  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 6 m g e n e r i c  [ 0 m    [ 3 6 m s  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m   
-  [ 3 4 m D e f :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 6 m B V V  [ 0 m    [ 3 6 m a  [ 0 m    [ 3 6 m b  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m I n t e g e r  [ 0 m    [ 3 6 m I n t e g e r  [ 0 m    [ 3 6 m B o o l e a n  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 6 m b f  [ 0 m   
- 	  [ 3 4 m W h e r e :  [ 3 3 m (  [ 0 m  [ 3 6 m b f  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m B o o l e a n  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 6 m B V V  [ 0 m    [ 3 6 m b  [ 0 m    [ 3 6 m a  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m   
-  [ 3 4 m D e f :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 6 m T S T  [ 0 m    [ 3 6 m l  [ 0 m    [ 3 6 m a b  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m I n t e g e r  [ 0 m    [ 3 6 m I n t e g e r  [ 0 m    [ 3 6 m I n t e g e r  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 6 m c f  [ 0 m    [ 3 5 m 1  [ 0 m    [ 3 5 m 2  [ 0 m  [ 3 3 m )  [ 0 m   
- 	  [ 3 4 m W h e r e :  [ 3 3 m (  [ 0 m  [ 3 6 m b  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m I n t e g e r  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 1 m +  [ 0 m    [ 3 6 m a b  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 6 m g e n e r i c  [ 0 m    [ 3 6 m l  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m   
- 	  [ 3 4 m W h e r e :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 6 m c f  [ 0 m    [ 3 6 m w  [ 0 m    [ 3 6 m x  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m I n t e g e r  [ 0 m    [ 3 6 m I n t e g e r  [ 0 m    [ 3 6 m I n t e g e r  [ 0 m  [ 3 3 m )  [ 0 m   
- 	 	  [ 3 4 m G u a r d :  [ 3 3 m (  [ 0 m  [ 3 4 m C a s e :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 6 m e q  [ 0 m    [ 3 6 m b  [ 0 m    [ 3 5 m 2  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 6 m w  [ 0 m  [ 3 3 m )  [ 0 m   
- 	 	 	  [ 3 4 m C a s e :  [ 3 3 m (  [ 0 m  [ 3 5 m T r u e  [ 0 m    [ 3 6 m x  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m   
- 	  [ 3 4 m W h e r e :  [ 3 3 m (  [ 0 m  [ 3 6 m c  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m I n t e g e r  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 6 m g e n e r i c  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 1 m +  [ 0 m    [ 3 6 m a b  [ 0 m    [ 3 6 m b  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 1 m -  [ 0 m    [ 3 6 m l  [ 0 m    [ 3 6 m b  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m   
- 	  [ 3 4 m W h e r e :  [ 3 3 m (  [ 0 m  [ 3 6 m b o o  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m F l o a t  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 5 m 2 3 . 0  [ 0 m  [ 3 3 m )  [ 0 m   
- 	  [ 3 4 m W h e r e :  [ 3 3 m (  [ 0 m  [ 3 6 m v  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m I n t e g e r  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 3 m (  [ 0 m  [ 3 6 m g e n e r i c  [ 0 m    [ 3 5 m 2 2 3  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m   
-  [ 3 4 m M a i n :  [ 3 3 m (  [ 0 m  [ 3 4 m D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m c r  [ 0 m    [ 3 4 m T y p e D e f :  [ 3 3 m (  [ 0 m  [ 3 6 m B o o l e a n  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 5 m T r u e  [ 0 m  [ 3 3 m )  [ 0 m   
-  [ 3 4 m S t m t :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 1 m +  [ 0 m    [ 3 6 m a  [ 0 m    [ 3 6 m b  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 4 m S t m t :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 6 m B V V  [ 0 m    [ 3 5 m 1  [ 0 m    [ 3 5 m 2  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m    [ 3 4 m S t m t :  [ 3 3 m (  [ 0 m  [ 3 3 m (  [ 0 m  [ 3 6 m T S T  [ 0 m    [ 3 6 m a  [ 0 m    [ 3 6 m b  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m  [ 3 3 m )  [ 0 m   
+(module 
+	(func $+ (param $+::a i32) (param $+::b i32) (result i32) i32.const 23) 
+	(func $generic (param $generic::s i32) (result i32) 
+		(if local.get $generic::s i32.const 2 call $eq 
+			(then local.get $generic::s call $generic) 
+		(else 
+		(if i32.const 0xFFFFFFFF 
+			(then local.get $generic::s call $generic))))) 
+	(func $BVV (param $BVV::a i32) (param $BVV::b i32) (result i32) local.get $BVV::a local.get $BVV::b call $BVV::bf) 
+	(func $TST (param $TST::l i32) (param $TST::ab i32) (result i32) i32.const 1 i32.const 2 local.get $TST::l local.get $TST::ab call $TST::cf) 
+	(func $BVV::bf (param $BVV::a i32) (param $BVV::b i32) (result i32) local.get $BVV::b local.get $BVV::a call $BVV) 
+	(func $TST::b (param $TST::l i32) (param $TST::ab i32) (result i32) local.get $TST::ab local.get $TST::l call $generic call $+) 
+	(func $TST::cf (param $TST::cf::w i32) (param $TST::cf::x i32) (param $TST::l i32) (param $TST::ab i32) (result i32) 
+		(if local.get $TST::l local.get $TST::ab call $TST::b i32.const 2 call $eq 
+			(then local.get $TST::cf::w) 
+		(else 
+		(if i32.const 0xFFFFFFFF 
+			(then local.get $TST::cf::x))))) 
+(export $+ $generic $BVV $TST)) 

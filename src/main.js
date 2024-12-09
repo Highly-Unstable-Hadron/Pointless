@@ -37,13 +37,13 @@ require('util').inspect.defaultOptions.depth = 50;
 readFile(input_filepath, "utf-8", (err, fileContents) => {
     if (err)
         console.error(`File Read Error (reading "${input_filepath}"): ${err}`);
-    let [AST, handler] = parser(fileContents);
+    let [ AST, handler ] = parser(fileContents, input_filepath);
 
     setStringHandler(handler);
-    // let context = semanticAnalyzer(AST);
-    context=2; output=4;
-    // codeGenSetGlobals(context, lookup, handler);
-    // let output = constructWasm();
+    let context = semanticAnalyzer(AST);
+
+    codeGenSetGlobals(context, lookup, handler);
+    let output = constructWasm();
 
     console.log(...devDebug.map(fn => fn(AST, context, output)));
 

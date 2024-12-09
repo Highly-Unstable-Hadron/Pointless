@@ -9,18 +9,27 @@ let definitions = {};       // References to the global fn's AST
 let signatures = {};        // Signatures of globals
 let localDefinitions = {};  // References to local fn's AST
 let localSignatures = {};   // Signatures of locals
+let mainDefinitions = {};   // Definitions of vars in main
+let mainSignatures = {};    // Signatures of vars defined in main
 const semanticGraph = {
     referencing: {          // Semantic graph's out-edges
         locals: {},
-        globals: {}
+        globals: {},
+		main: {}
     },
     referenced_in: {        // Semantic graph's in-edges
         local_args: {},
         locals: {},
-        globals: {}
+        globals: {},
+		main: {}
     },
     fetchFromPath: function (path) {
         let [first, second, third] = path;
+		if (String(first) == 'main') {
+			if (second === undefined)
+				return [this.referenced_in.main[first], this.referencing.main[first]];
+			return [this.referenced_in.main[first][second], this.referencing.main[first][second]];
+		}
         if (second === undefined)
             return [this.referenced_in.globals[first], this.referencing.globals[first]];
         else if (third === undefined)
@@ -45,8 +54,19 @@ function semanticAnalyzer(ast) {
     }
 
     let generators = [];
+    let maincount = 0;
+    let main = null;
     ast.forEach(definition => {
-        let yielded_exec = functionDefinition(definition);
+        if (definition.rule_type == RuleTypes.MainBlock) {
+		    maincount += 1;
+	    if (maincount > 1) {
+			definition.fitFailed('', [], "Can't have two 'main' blocks in a file", true);
+			Handler.handler.throwErrorWithoutExit(Exceptions.SyntaxError, definition);
+	    }
+	    main = definition;
+	    return;
+	}
+	let yielded_exec = functionDefinition(definition);
         if (yielded_exec.next().value)
             generators.push(yielded_exec);
     });
@@ -54,6 +74,8 @@ function semanticAnalyzer(ast) {
     generators.forEach(generator => {
         generator.next()
     });
+    if (maincount == 1)
+		mainDefinition(main);
 
     if (Handler.handler.errorOccurred)
         process.exit(1);
@@ -65,6 +87,8 @@ function semanticAnalyzer(ast) {
         signatures:         signatures,
         localDefinitions:   localDefinitions,
         locals:             localSignatures,
+		mainDefinitions:    mainDefinitions,
+		mainSignatures:     mainSignatures,
         semanticGraph:      semanticGraph
     }
 }
@@ -145,6 +169,21 @@ function destructureAssignment(ast, isWhereDefn) {
         return [fnName, args, types, body, wheres, resultType];
     else
         return [fnName, args, types, body, resultType];
+}
+
+function mainDefinition(ast) {
+    for (let stmt of ast) {
+		if (stmt.rule_type == RuleTypes.Assignment) {
+			let [identifier, args, argtypes, body, resultType] = destructureAssignment(stmt, true);
+			identstr = String(identifier);
+			if (globalIdentifiers.has(identstr))
+				Handler.handler.warn(Exceptions.NameError, Fit.tokenFailed(identifier, `Overshadows global identifier '${identstr}'`));
+			mainDefinitions[identstr] = body;
+			mainSignatures[identstr] = {};
+		} else if (stmt.rule_type == RuleTypes.FnCall) {
+
+		}
+    }
 }
 
 function* functionDefinition(ast) {
