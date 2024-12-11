@@ -8,6 +8,8 @@ const ScopeSeparator = '::';
 let haveCompiled = new Map();  // stores which assignments have been compiled (boolean)
 let compiledWheres = [];
 
+let watFnSignatures = new Map();
+
 function wat_indent(that, indent_by) {
     that.wat_indent = indent_by;
     return that;
@@ -71,15 +73,17 @@ function genLiteral(path, ast_snip) {
     }
 }
 function genGuards(path, ast_snip) {
-    let output = wat_indent(['if', ...genFnCall(path, ast_snip[0][0]), 
+    let output = [...genFnCall(path, ast_snip[0][0]),
+            wat_indent(['if',
+    // let output = wat_indent(['if', ...genFnCall(path, ast_snip[0][0]),
             wat_indent(['then', ...genFnCall(path, ast_snip[0][1])], 3),
-        ], 2);
+        ], 2)];
     let remaining_conds = ast_snip.slice(1);
     if (remaining_conds.length != 0)
-        output.push(wat_indent(
+        output.at(-1).push(wat_indent(
             ['else', ...genGuards(path, remaining_conds)], 2
         ));
-    return [output];
+    return output;
 }
 function genFnCall(path, ast_snip) {
     if (ast_snip.isToken)
@@ -125,6 +129,10 @@ function genFunctionDef(path, body) {
         }
     }
 
+    let header = ['func',
+                ...args.map((arg, index) => ['param', genTypes(argTypes[index])]),
+        ['result', genTypes(resultType)]];
+    watFnSignatures.set(path.join(ScopeSeparator), header);
     let output = wat_indent([
                 'func', '$'+path.join(ScopeSeparator),
                 ...args.map((arg, index) => ['param', '$'+argPaths[index], genTypes(argTypes[index])]), 
@@ -140,7 +148,8 @@ function constructWasm() {
         if (!haveCompiled.has(fn))
             ast.push(genFunctionDef([fn], globals.context.definitions[fn]));
         // TODO: do only genFnCall(["main"], globals.context.definitions.main, [])
-        exportables.push('$'+fn);
+        exportables.push(['export', '"'+fn+'"', ['func', '$'+fn]]);
+        exportables.at(-1).wat_newline = true;  // indentation in output
     }
 
     for (let def of compiledWheres) {
@@ -150,9 +159,8 @@ function constructWasm() {
     let output = [
         'module',
         ...ast,
-        ['export', ...exportables]
+        ...exportables
     ]
-    output.at(-1).wat_newline = true;  // indentation in output
     return [output];
 }
 

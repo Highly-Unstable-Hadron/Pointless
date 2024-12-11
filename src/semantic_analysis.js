@@ -74,8 +74,8 @@ function semanticAnalyzer(ast) {
     generators.forEach(generator => {
         generator.next()
     });
-    if (maincount == 1)
-		mainDefinition(main);
+    // if (maincount == 1)
+	//	mainDefinition(main);
 
     if (Handler.handler.errorOccurred)
         process.exit(1);
@@ -180,6 +180,19 @@ function mainDefinition(ast) {
 				Handler.handler.warn(Exceptions.NameError, Fit.tokenFailed(identifier, `Overshadows global identifier '${identstr}'`));
 			mainDefinitions[identstr] = body;
 			mainSignatures[identstr] = {};
+
+            let arguments = new Set();
+            args.forEach((arg, index) => {
+                let stringed_arg = String(arg);
+                semanticGraph.referencing.main[identstr][stringed_arg] = [];
+                semanticGraph.referenced_in.main[identstr][stringed_arg] = [];
+                if (arguments.has(stringed_arg) || stringed_arg == stringFnName)
+                    Handler.handler.throwErrorWithoutExit(Exceptions.NameError, Fit.tokenFailed(arg, "Identifier already used"));
+                arguments.add(stringed_arg);
+                mainSignatures[identstr][stringed_arg] = argtypes[index];
+            });
+
+            let bodySignature = verifyBody(body, ['main', identstr])
 		} else if (stmt.rule_type == RuleTypes.FnCall) {
 
 		}
